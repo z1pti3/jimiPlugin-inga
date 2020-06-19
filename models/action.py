@@ -1,3 +1,4 @@
+import time
 import uuid
 from pathlib import Path
 from selenium import webdriver
