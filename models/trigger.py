@@ -11,6 +11,7 @@ class _ingaIPDiscover(trigger._trigger):
     scanName = str()
     scanQuantity = int()
     cidr = str()
+    stateChange = bool()
 
     def check(self):
         ips = IPNetwork(self.cidr)
@@ -37,32 +38,35 @@ class _ingaIPDiscover(trigger._trigger):
             if "Host is up (" in stdout.decode():
                 if scanResult.up != True:
                     scanResult.updateRecord(scanResult.ip,True)
-                    discovered.append({ "ip" : scanResult.ip, "up" : True })
                     change = True
+                if not self.stateChange or change:
+                    discovered.append({ "ip" : scanResult.ip, "up" : True })
             else:
                 process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
                 if "Host is up (" in stdout.decode():
                     if scanResult.up != True:
                         scanResult.updateRecord(scanResult.ip,True)
-                        discovered.append({ "ip" : scanResult.ip, "up" : True })
                         change = True
+                    if not self.stateChange or change:
+                        discovered.append({ "ip" : scanResult.ip, "up" : True })
                 else:
                     process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout, stderr = process.communicate()
                     if "Host is up (" in stdout.decode():
                         if scanResult.up != True:
                             scanResult.updateRecord(scanResult.ip,True)
-                            discovered.append({ "ip" : scanResult.ip, "up" : True })
                             change = True
+                        if not self.stateChange or change:
+                            discovered.append({ "ip" : scanResult.ip, "up" : True })
                     else:
                         if scanResult.up != False:
                             scanResult.updateRecord(scanResult.ip,False)
-                            discovered.append({ "ip" : scanResult.ip, "up" : False })
                             change = True
+                        if not self.stateChange or change:
+                            discovered.append({ "ip" : scanResult.ip, "up" : False })
             if not change:
                 scanResult.lastScan = int(time.time())
                 scanResult.update(["lastScan"])
             
-
         self.result["events"] = discovered

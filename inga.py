@@ -1,13 +1,14 @@
 from core import plugin, model
 
 class _inga(plugin._plugin):
-    version = 0.2
+    version = 0.3
 
     def install(self):
         # Register models
         model.registerModel("ingaIPDiscover","_ingaIPDiscover","_trigger","plugins.inga.models.trigger")
         model.registerModel("inga","_inga","_document","plugins.inga.models.inga")
         model.registerModel("ingaWebScreenShot","_ingaWebScreenShot","_action","plugins.inga.models.action")
+        model.registerModel("ingaPortScan","_ingaPortScan","_action","plugins.inga.models.action")
         return True
 
     def uninstall(self):
@@ -15,5 +16,9 @@ class _inga(plugin._plugin):
         model.deregisterModel("ingaIPDiscover","_ingaIPDiscover","_trigger","plugins.inga.models.trigger")
         model.deregisterModel("inga","_inga","_document","plugins.inga.models.inga")
         model.deregisterModel("ingaWebScreenShot","_ingaWebScreenShot","_action","plugins.inga.models.action")
+        model.deregisterModel("ingaPortScan","_ingaPortScan","_action","plugins.inga.models.action")
         return True
     
+    def upgrade(self,LatestPluginVersion):
+        if self.version < 0.3:
+            model.registerModel("ingaPortScan","_ingaPortScan","_action","plugins.inga.models.action")
