@@ -40,7 +40,7 @@ class _ingaIPDiscover(trigger._trigger):
                     scanResult.updateRecord(scanResult.ip,True)
                     change = True
                 if not self.stateChange or change:
-                    discovered.append({ "ip" : scanResult.ip, "up" : True })
+                    discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
             else:
                 process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
@@ -49,7 +49,7 @@ class _ingaIPDiscover(trigger._trigger):
                         scanResult.updateRecord(scanResult.ip,True)
                         change = True
                     if not self.stateChange or change:
-                        discovered.append({ "ip" : scanResult.ip, "up" : True })
+                        discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
                 else:
                     process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout, stderr = process.communicate()
@@ -58,13 +58,13 @@ class _ingaIPDiscover(trigger._trigger):
                             scanResult.updateRecord(scanResult.ip,True)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : True })
+                            discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
                     else:
                         if scanResult.up != False:
                             scanResult.updateRecord(scanResult.ip,False)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : False })
+                            discovered.append({ "ip" : scanResult.ip, "up" : False, "scanName" : self.scanName })
             if not change:
                 scanResult.lastScan = int(time.time())
                 scanResult.update(["lastScan"])

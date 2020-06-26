@@ -10,7 +10,7 @@ class _inga(db._document):
     ip = str()
     up = bool()
     lastScan = int()
-    history = list()
+    ports = dict()
 
     _dbCollection = db.db[dbCollectionName]
 
