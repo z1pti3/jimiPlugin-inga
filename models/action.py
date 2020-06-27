@@ -28,17 +28,13 @@ class _ingaPortScan(action._action):
                 options.append(ports.split(" ")[0])
                 options.append(ports.split(" ")[1])
             else:
-                options.append("-P")
+                options.append("-p")
                 options.append(ports)
             options.append(ip)
 
-            print(ip)
-            print(scanName)
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
             if len(scan) > 0:
                 scan = scan[0]
-                print(scan.ip)
-                print(scan.ports)
 
                 process = subprocess.Popen(options, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 try:
@@ -63,25 +59,25 @@ class _ingaPortScan(action._action):
                     portState = logicMatch.group(3).strip()
                     portService = logicMatch.group(4).strip()
 
-                    foundPorts.append(portNumber)
+                    if portNumber not in foundPorts:
+                        foundPorts.append(portNumber)
 
-                    if portType not in scan.ports:
-                        scan.ports[portType] = {}
-                    if portNumber not in scan.ports[portType]:
-                        scan.ports[portType][portNumber] = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService }
-                        updates.append(scan.ports[portType][portNumber])
-                        new = True
-                    else:
-                        if scan.ports[portType][portNumber]["state"] != portState:
-                            scan.ports[portType][portNumber]["state"] = portState
+                        if portType not in scan.ports:
+                            scan.ports[portType] = {}
+                        if portNumber not in scan.ports[portType]:
+                            scan.ports[portType][portNumber] = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService }
                             updates.append(scan.ports[portType][portNumber])
-                            change = True
-                        if scan.ports[portType][portNumber]["service"] != portService:
-                            scan.ports[portType][portNumber]["service"] = portService
+                            new = True
+                        elif scan.ports[portType][portNumber]["state"] != portState or scan.ports[portType][portNumber]["service"] != portService:
+                            if scan.ports[portType][portNumber]["state"] != portState:
+                                scan.ports[portType][portNumber]["state"] = portState
+                                change = True
+                            if scan.ports[portType][portNumber]["service"] != portService:
+                                scan.ports[portType][portNumber]["service"] = portService
+                                change = True
                             updates.append(scan.ports[portType][portNumber])
-                            change = True
-                    if not self.stateChange and not change and not new:
-                        updates.append(scan.ports[portType][portNumber])
+                        elif not self.stateChange:
+                            updates.append(scan.ports[portType][portNumber])
 
                 poplist = []
                 if len(foundPorts) > 0:
@@ -104,8 +100,6 @@ class _ingaPortScan(action._action):
                     actionResult["rc"] = 302
                 else:
                     if len(foundPorts) > 0:
-                        print(foundPorts)
-                        print(scan.ports)
                         actionResult["rc"] = 304
                     else:
                         actionResult["rc"] = 0
@@ -120,17 +114,26 @@ class _ingaWebScreenShot(action._action):
 
     def run(self,data,persistentData,actionResult):
         url = helpers.evalString(self.url,{"data" : data})
-        wdriver = webdriver.PhantomJS(service_args=['--ignore-ssl-errors=true', '--ssl-protocol=any'])
+        profile = webdriver.FirefoxProfile()
+        profile.accept_untrusted_certs = True
+        fireFoxOptions = webdriver.FirefoxOptions()
+        fireFoxOptions.set_headless()
+        wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
         wdriver.set_window_size(1920, 1080)
-        wdriver.get(url)
-        filename  = "{0}.png".format(str(uuid.uuid4()))
         timeout = 5
         if self.timeout != 0:
             timeout = self.timeout
-        time.sleep(timeout)
-        wdriver.save_screenshot(Path("output/{0}".format(filename)))
-        wdriver.quit
-        actionResult["result"] = True
-        actionResult["rc"] = 0
-        actionResult["data"] = { "filename" : filename }
+        wdriver.set_page_load_timeout(timeout)
+        try:
+            wdriver.get(url)
+            filename  = "{0}.png".format(str(uuid.uuid4()))
+            wdriver.save_screenshot(str(Path("plugins/inga/output/{0}".format(filename))))
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+            actionResult["data"] = { "filename" : filename }
+        except:
+            actionResult["result"] = False
+            actionResult["rc"] = 100
+        finally:
+            wdriver.quit()
         return actionResult
