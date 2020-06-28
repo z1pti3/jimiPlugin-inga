@@ -359,3 +359,4 @@ __pycache__
 venv/
 .venv/
 .vscode
+output/

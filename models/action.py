@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from selenium import webdriver
 import subprocess
+import requests
+from urllib3.exceptions import InsecureRequestWarning
 
 from core import settings, helpers
 from core.models import action
@@ -23,7 +25,7 @@ class _ingaPortScan(action._action):
             ports = helpers.evalString(self.ports,{"data" : data})
             scanName = helpers.evalString(self.scanName,{"data" : data})
 
-            options = ["nmap","--max-rtt-timeout","800ms","max-retries","0"]
+            options = ["nmap"]
             if ports.startswith("--"):
                 options.append(ports.split(" ")[0])
                 options.append(ports.split(" ")[1])
@@ -86,7 +88,7 @@ class _ingaPortScan(action._action):
                             poplist.append(port)
                     for port in poplist:
                         updates.append(scan.ports["tcp"][port])
-                        del scan.ports["tcp"][port]
+                        del scan.ports["tcp"][port] 
                         change = True
 
                 if new or change:
@@ -107,13 +109,15 @@ class _ingaPortScan(action._action):
         actionResult["result"] = False
         actionResult["rc"] = 1
         return actionResult
-           
+
 class _ingaWebScreenShot(action._action):
     url = str()
     timeout = int()
+    updateScan = dict()
 
     def run(self,data,persistentData,actionResult):
         url = helpers.evalString(self.url,{"data" : data})
+
         profile = webdriver.FirefoxProfile()
         profile.accept_untrusted_certs = True
         fireFoxOptions = webdriver.FirefoxOptions()
@@ -128,6 +132,12 @@ class _ingaWebScreenShot(action._action):
             wdriver.get(url)
             filename  = "{0}.png".format(str(uuid.uuid4()))
             wdriver.save_screenshot(str(Path("plugins/inga/output/{0}".format(filename))))
+
+            # Update scan if updateScan mapping was provided
+            updateScan = helpers.evalDict(self.updateScan,{ "data" : data })
+            if len(updateScan) > 0:
+                inga._inga().api_update(query={ "scanName": updateScan["scanName"], "ip": updateScan["ip"] },update={ "$set" : { "ports.{0}.{1}.webScreenShot".format(updateScan["protocol"],updateScan["port"]) : { "filename" : filename } } })
+
             actionResult["result"] = True
             actionResult["rc"] = 0
             actionResult["data"] = { "filename" : filename }
@@ -137,3 +147,60 @@ class _ingaWebScreenShot(action._action):
         finally:
             wdriver.quit()
         return actionResult
+
+class _ingaWebServerDetect(action._action):
+    ip = str()
+    port = str()
+    timeout = int()
+    updateScan = dict()
+    excludeHeaders = list()
+
+    def run(self,data,persistentData,actionResult):
+        ip = helpers.evalString(self.ip,{"data" : data})
+        port = helpers.evalString(self.port,{"data" : data})
+
+        requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+        protocols = ["http", "https"]
+        for protocol in protocols:
+            try:
+                timeout = 5
+                if self.timeout != 0:
+                    timeout = self.timeout
+                response = requests.get("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+                headers = helpers.lower_dict(response.headers)
+                for excludeHeader in self.excludeHeaders:
+                    if excludeHeader in headers:
+                        del headers[excludeHeader]
+                if protocol == "http":
+                    if response.status_code == 301:
+                        if "location" in headers:
+                            if "https" in headers["location"]:
+                                actionResult["data"]["protocol"] = "https"
+                                actionResult["data"]["headers"] = headers
+                                actionResult["result"] = False
+                                actionResult["rc"] = 301
+                                return actionResult
+                # Update scan if updateScan mapping was provided
+                updateScan = helpers.evalDict(self.updateScan,{ "data" : data })
+                if len(updateScan) > 0:
+                    updateResult = inga._inga().api_update(query={ "scanName": updateScan["scanName"], "ip": updateScan["ip"], "ports.{0}.{1}.webServerDetect.headers".format(updateScan["protocol"],updateScan["port"]) : { "$ne" : headers } },update={ "$set" : { "ports.{0}.{1}.webServerDetect".format(updateScan["protocol"],updateScan["port"]) : { "protocol" : protocol, "headers" : headers  } } })
+                    if updateResult["count"] > 0:
+                        actionResult["data"]["protocol"] = protocol
+                        actionResult["data"]["headers"] = headers
+                        actionResult["result"] = True
+                        actionResult["rc"] = 205
+                        return actionResult
+
+                actionResult["data"]["protocol"] = protocol
+                actionResult["data"]["headers"] = headers
+                actionResult["result"] = True
+                actionResult["rc"] = 304
+                return actionResult
+            except:
+                pass
+
+        actionResult["result"] = False
+        actionResult["rc"] = 404
+        return actionResult
+           
