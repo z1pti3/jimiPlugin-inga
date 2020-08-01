@@ -1,7 +1,7 @@
 from core import plugin, model
 
 class _inga(plugin._plugin):
-    version = 0.4
+    version = 0.5
 
     def install(self):
         # Register models
@@ -10,6 +10,7 @@ class _inga(plugin._plugin):
         model.registerModel("ingaWebScreenShot","_ingaWebScreenShot","_action","plugins.inga.models.action")
         model.registerModel("ingaPortScan","_ingaPortScan","_action","plugins.inga.models.action")
         model.registerModel("ingaWebServerDetect","_ingaWebServerDetect","_action","plugins.inga.models.action")
+        model.registerModel("ingaIPDiscoverAction","_ingaIPDiscoverAction","_action","plugins.inga.models.action")
         return True
 
     def uninstall(self):
@@ -22,6 +23,8 @@ class _inga(plugin._plugin):
         return True
     
     def upgrade(self,LatestPluginVersion):
+        if self.version < 0.5:
+            model.registerModel("ingaIPDiscoverAction","_ingaIPDiscoverAction","_action","plugins.inga.models.action")
         if self.version < 0.4:
             model.registerModel("ingaWebServerDetect","_ingaWebServerDetect","_action","plugins.inga.models.action")
         if self.version < 0.3:
