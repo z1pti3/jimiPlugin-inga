@@ -27,7 +27,7 @@
             <tbody class="theme-tableBody">
                 {% for scan in scans %}
                     <tr>
-                        <td><a href='{{ scan["scanName"]|safe }}/'>{{ scan["scanName"]|safe }}</a></td>
+                        <td><a href='scan/?scanName={{ scan["scanName"]|urlencode }}'>{{ scan["scanName"]|e }}</a></td>
                         <td>{{ scan["up"]|safe }}</td>
                         <td>{{ scan["total"]|safe }}</td>
                     </tr>
