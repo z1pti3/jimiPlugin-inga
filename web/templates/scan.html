@@ -1,0 +1,58 @@
+<script src="{{ url_for('static', filename='includes/jquery/js/jquery-3.4.1.js') }}"></script>
+<script src="{{ url_for('static', filename='includes/jquery/js/jquery.datatables.min.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='includes/datatables/css/dataTables.bootstrap.css') }}">
+<script src="{{ url_for('static', filename='includes/datatables/js/dataTables.bootstrap.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='includes/bootstrap-3.3.7/css/bootstrap.min.css') }}">
+<script src="{{ url_for('static', filename='includes/bootstrap-3.3.7/js/bootstrap.min.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/datatable.css') }}">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='themes/default/default.css') }}">
+
+<html>
+    <head>
+        
+    </head>
+    <body class="theme-panelContainer">
+        <table id="orderTable" class="table table-sm theme-table" cellspacing="0" width="100%">
+            <thead class="theme-tableHeader">
+                <tr>
+                    <th class="th-sm">lastScan</th>
+                    <th class="th-sm">Scan Name</th>
+                    <th class="th-sm">ip</th>
+                    <th class="th-sm">up</th>
+                    <th class="th-sm">ports</th>
+                </tr>
+            </thead>
+            <tbody class="theme-tableBody">
+                {% for result in scanResults %}
+                    <tr>
+                        <td>{{ result["lastScan"] }}</td>
+                        <td>{{ result["scanName"] }}</td>
+                        <td>{{ result["ip"] }}</td>
+                        <td>{{ result["up"] }}</td>
+                        <td>{{ result["ports"] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </body>
+</html>
+
+<script>
+    $(document).ready(function () {
+        $('#orderTable').DataTable({
+            "paging" : false,
+            "stripeClasses" : [ 'theme-tableRowOdd', 'theme-tableRowEven' ],
+            fixedHeader: {
+                header: true,
+                footer: true
+            },
+        });
+        $('.dataTables_length').addClass('bs-select');
+        $('.dataTables_filter input[type="search"]').css({'width':'200px'});
+        $('.dataTables_filter input[type="search"]').addClass("theme-panelTextbox");
+    });
+</script>

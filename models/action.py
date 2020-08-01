@@ -167,7 +167,7 @@ class _ingaWebServerDetect(action._action):
                 timeout = 5
                 if self.timeout != 0:
                     timeout = self.timeout
-                response = requests.get("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+                response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
                 headers = helpers.lower_dict(response.headers)
                 for excludeHeader in self.excludeHeaders:
                     if excludeHeader in headers:
