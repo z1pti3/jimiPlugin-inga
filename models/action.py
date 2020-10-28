@@ -18,6 +18,7 @@ class _ingaIPDiscoverAction(action._action):
     cidr = str()
     stateChange = bool()
     runRemote = bool()
+    pingOnly = bool()
 
     def run(self,data,persistentData,actionResult):
         ips = IPNetwork(self.cidr)
@@ -57,7 +58,7 @@ class _ingaIPDiscoverAction(action._action):
                     change = True
                 if not self.stateChange or change:
                     discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
-            else:
+            elif self.pingOnly == False:
                 if self.runRemote and "remote" in persistentData:
                     if "client" in persistentData["remote"]:
                         client = persistentData["remote"]["client"]
@@ -314,5 +315,4 @@ class _ingaWebServerDetect(action._action):
 
         actionResult["result"] = False
         actionResult["rc"] = 404
-        return actionResult
-           
+        return actionResult           
