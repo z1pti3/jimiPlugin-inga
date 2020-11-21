@@ -69,7 +69,12 @@ class _ingaIPDiscoverAction(action._action):
                     stdout, stderr = process.communicate()
                     stdout = stdout.decode()
                     stderr = stderr.decode()
-                if "Host is up (" in stdout:
+                openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
+                up = False
+                for index, logicMatch in enumerate(openPorts):
+                    up = True
+                    break
+                if up:
                     if scanResult.up != True:
                         scanResult.updateRecord(scanResult.ip,True)
                         change = True
@@ -87,7 +92,13 @@ class _ingaIPDiscoverAction(action._action):
                         stdout, stderr = process.communicate()
                         stdout = stdout.decode()
                         stderr = stderr.decode()
-                    if "Host is up (" in stdout:
+
+                    openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
+                    up = False
+                    for index, logicMatch in enumerate(openPorts):
+                        up = True
+                        break
+                    if up:
                         if scanResult.up != True:
                             scanResult.updateRecord(scanResult.ip,True)
                             change = True
@@ -140,6 +151,10 @@ class _ingaPortScan(action._action):
             if len(scan) > 0:
                 scan = scan[0]
 
+                timeout = 30
+                if self.timeout > 0:
+                    timeout = self.timeout
+
                 # Support for running on a remote host
                 if self.runRemote and "remote" in persistentData:
                     if "client" in persistentData["remote"]:
@@ -150,9 +165,6 @@ class _ingaPortScan(action._action):
                 else:
                     process = subprocess.Popen(options, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     try:
-                        timeout = 30
-                        if self.timeout > 0:
-                            timeout = self.timeout
                         stdout, stderr = process.communicate(timeout=timeout)
                         stdout = stdout.decode()
                         stderr = stderr.decode()
@@ -165,7 +177,7 @@ class _ingaPortScan(action._action):
                 openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
                 change = False
                 new = False
-                updates = []
+                updates = { "new" : [], "removed" : [] }
                 foundPorts = []
                 for index, logicMatch in enumerate(openPorts):
                     portNumber = logicMatch.group(1).strip()
@@ -180,7 +192,7 @@ class _ingaPortScan(action._action):
                             scan.ports[portType] = {}
                         if portNumber not in scan.ports[portType]:
                             scan.ports[portType][portNumber] = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService }
-                            updates.append(scan.ports[portType][portNumber])
+                            updates["new"].append(scan.ports[portType][portNumber])
                             new = True
                         elif scan.ports[portType][portNumber]["state"] != portState or scan.ports[portType][portNumber]["service"] != portService:
                             if scan.ports[portType][portNumber]["state"] != portState:
@@ -189,19 +201,21 @@ class _ingaPortScan(action._action):
                             if scan.ports[portType][portNumber]["service"] != portService:
                                 scan.ports[portType][portNumber]["service"] = portService
                                 change = True
-                            updates.append(scan.ports[portType][portNumber])
+                            updates["new"].append(scan.ports[portType][portNumber])
                         elif not self.stateChange:
-                            updates.append(scan.ports[portType][portNumber])
+                            updates["new"].append(scan.ports[portType][portNumber])
 
                 poplist = []
-                if len(foundPorts) > 0:
+                try:
                     for port in scan.ports["tcp"]:
                         if port not in foundPorts:
                             poplist.append(port)
                     for port in poplist:
-                        updates.append(scan.ports["tcp"][port])
+                        updates["removed"].append(scan.ports["tcp"][port])
                         del scan.ports["tcp"][port] 
                         change = True
+                except KeyError:
+                    pass
 
                 if new or change:
                     scan.update(["ports"])
