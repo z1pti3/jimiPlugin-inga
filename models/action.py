@@ -8,7 +8,7 @@ import requests
 from urllib3.exceptions import InsecureRequestWarning
 from netaddr import *
 
-from core import settings, helpers
+from core import settings, helpers, audit
 from core.models import action
 from plugins.inga.models import inga
 
@@ -219,6 +219,7 @@ class _ingaPortScan(action._action):
 
                 if new or change:
                     scan.update(["ports"])
+                    audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
                 actionResult["result"] = True
                 actionResult["data"]["portScan"] = updates
