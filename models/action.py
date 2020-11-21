@@ -151,7 +151,11 @@ class _ingaPortScan(action._action):
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
             if len(scan) > 0:
                 scan = scan[0]
+            else:
+                scanID = inga._inga().new(scanName,ip,True).inserted_id
+                scan = inga._inga().getAsClass(id=scanID)[0]
 
+            if scan:
                 timeout = 30
                 if self.timeout > 0:
                     timeout = self.timeout
