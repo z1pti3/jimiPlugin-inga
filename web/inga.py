@@ -1,5 +1,6 @@
 import urllib.parse
-from flask import request
+from pathlib import Path
+from flask import request, send_from_directory
 from markupsafe import Markup
 
 from flask import Blueprint, render_template
@@ -18,6 +19,10 @@ def urlencode_filter(s):
     s = urllib.parse.quote_plus(s)
     return Markup(s)
 
+@pluginPages.route('/inga/includes/<file>')
+def custom_static(file):
+    return send_from_directory(str(Path("plugins/inga/web/includes")), file)
+
 @pluginPages.route("/inga/")
 def mainPage():
     scans = inga._inga()._dbCollection.distinct("scanName")
@@ -33,4 +38,32 @@ def mainPage():
 def getScan():
     scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
     results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True })["results"]
+    if "ipToPorts" in request.args:
+        ipToPorts = []
+        for scan in results:
+            try:
+                for portKey, portValue in scan["ports"]["tcp"].items():
+                    ipToPorts.append([scan["ip"],portValue["port"]])
+            except KeyError:
+                pass
+        return { "results" : ipToPorts }, 200
+    elif "portCount" in request.args:
+        ports = { }
+        for scan in results:
+            try:
+                for portKey, portValue in scan["ports"]["tcp"].items():
+                    if portValue["port"] not in ports:
+                        ports[portValue["port"]] = 0
+                    ports[portValue["port"]]+=1
+            except KeyError:
+                pass
+        return { "results" : ports }, 200
+    elif "ipCount" in request.args:
+        ips = { }
+        for scan in results:
+            try:
+                ips[scan["ip"]] = len(scan["ports"]["tcp"])
+            except KeyError:
+                pass
+        return { "results" : ips }, 200
     return render_template("scan.html", scanResults=results)
