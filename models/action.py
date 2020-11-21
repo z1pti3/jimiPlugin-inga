@@ -34,7 +34,7 @@ class _ingaIPDiscoverAction(action._action):
                 if str(ip) == scanResult["ip"]:
                     ipFound = True
             if not ipFound:
-                inga._inga().new(self.scanName,str(ip),False)
+                inga._inga().new(self.acl,self.scanName,str(ip),False)
 
         scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
         discovered = []
@@ -152,7 +152,7 @@ class _ingaPortScan(action._action):
             if len(scan) > 0:
                 scan = scan[0]
             else:
-                scanID = inga._inga().new(scanName,ip,True).inserted_id
+                scanID = inga._inga().new(self.acl,scanName,ip,True).inserted_id
                 scan = inga._inga().getAsClass(id=scanID)[0]
 
             if scan:

@@ -14,7 +14,8 @@ class _inga(db._document):
 
     _dbCollection = db.db[dbCollectionName]
 
-    def new(self, scanName, ip, up):
+    def new(self, acl, scanName, ip, up):
+        self.acl = acl
         self.scanName = scanName
         self.name = ip
         self.ip = ip
