@@ -70,7 +70,7 @@ class _ingaIPDiscoverAction(action._action):
                     stdout, stderr = process.communicate()
                     stdout = stdout.decode()
                     stderr = stderr.decode()
-                openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
+                openPorts = re.finditer(r'^(\d*)\/(\S*)\s+(open)\s+([^\n]*)$',stdout,re.MULTILINE)
                 up = False
                 for index, logicMatch in enumerate(openPorts):
                     up = True
@@ -94,7 +94,7 @@ class _ingaIPDiscoverAction(action._action):
                         stdout = stdout.decode()
                         stderr = stderr.decode()
 
-                    openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
+                    openPorts = re.finditer(r'^(\d*)\/(\S*)\s+(open)\s+([^\n]*)$',stdout,re.MULTILINE)
                     up = False
                     for index, logicMatch in enumerate(openPorts):
                         up = True

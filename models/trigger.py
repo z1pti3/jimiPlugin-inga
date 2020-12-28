@@ -1,4 +1,5 @@
 import time
+import re
 
 import subprocess
 from netaddr import *
@@ -42,18 +43,28 @@ class _ingaIPDiscover(trigger._trigger):
                 if not self.stateChange or change:
                     discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
             else:
-                process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0","--open",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
-                if "Host is up (" in stdout.decode():
+                openPorts = re.finditer(r'^(\d*)\/(\S*)\s+(open)\s+([^\n]*)$',stdout,re.MULTILINE)
+                up = False
+                for index, logicMatch in enumerate(openPorts):
+                    up = True
+                    break
+                if up:
                     if scanResult.up != True:
                         scanResult.updateRecord(scanResult.ip,True)
                         change = True
                     if not self.stateChange or change:
                         discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
                 else:
-                    process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0","--open",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout, stderr = process.communicate()
-                    if "Host is up (" in stdout.decode():
+                    openPorts = re.finditer(r'^(\d*)\/(\S*)\s+(open)\s+([^\n]*)$',stdout,re.MULTILINE)
+                    up = False
+                    for index, logicMatch in enumerate(openPorts):
+                        up = True
+                        break
+                    if up:
                         if scanResult.up != True:
                             scanResult.updateRecord(scanResult.ip,True)
                             change = True
