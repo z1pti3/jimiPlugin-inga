@@ -8,7 +8,7 @@ import requests
 from urllib3.exceptions import InsecureRequestWarning
 from netaddr import *
 
-from core import settings, helpers, audit
+from core import settings, helpers, audit, db
 from core.models import action
 from plugins.inga.models import inga
 
@@ -222,8 +222,12 @@ class _ingaPortScan(action._action):
                 except KeyError:
                     pass
 
+                if "scanDetails" not in scan.ports:
+                    scan.ports["scanDetails"] = { "lastPortScan" : 0 }
+                scan.ports["scanDetails"]["lastPortScan"] = time.time()
+                scan.update(["ports"])
+
                 if new or change:
-                    scan.update(["ports"])
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
                 actionResult["result"] = True
@@ -335,3 +339,30 @@ class _ingaWebServerDetect(action._action):
         actionResult["result"] = False
         actionResult["rc"] = 404
         return actionResult           
+
+
+class _ingaGetScanUpAction(action._action):    
+    scanName = str()
+    customSearch = dict()
+    limit = 0
+
+    def run(self,data,persistentData,actionResult):
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+        customSearch = helpers.evalDict(self.customSearch,{"data" : data})
+        search = { "scanName" : scanName, "up" : True }
+        if customSearch:
+            for key,value in customSearch.items():
+                search[key] = value
+        actionResult["result"] = True
+        actionResult["rc"] = 0
+        if self.limit > 0:
+            actionResult["events"] = inga._inga().query(query=search,limit=self.limit)["results"]
+        else:
+            actionResult["events"] = inga._inga().query(query=search)["results"]
+        return actionResult
+
+    def setAttribute(self,attr,value,sessionData=None):
+        if not sessionData or db.fieldACLAccess(sessionData,self.acl,attr,accessType="write"):
+            if attr == "customSearch":
+                value = helpers.unicodeEscapeDict(value)
+        return super(_ingaGetScanUpAction, self).setAttribute(attr,value,sessionData=sessionData)

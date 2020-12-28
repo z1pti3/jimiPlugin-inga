@@ -5,6 +5,7 @@ import subprocess
 from netaddr import *
 
 from core.models import trigger
+from core import db
 
 from plugins.inga.models import inga
 
@@ -81,3 +82,25 @@ class _ingaIPDiscover(trigger._trigger):
                 scanResult.update(["lastScan"])
             
         self.result["events"] = discovered
+
+class _ingaGetScanUp(trigger._trigger):    
+    scanName = str()
+    customSearch = dict()
+    limit = 0
+
+    def check(self):
+        search = { "scanName" : self.scanName, "up" : True }
+        if self.customSearch:
+            for key,value in self.customSearch.items():
+                search[key] = value
+
+        if self.limit > 0:
+            self.result["events"] = inga._inga().query(query=search,limit=self.limit)["results"]
+        else:
+            self.result["events"] = inga._inga().query(query=search)["results"]
+
+    def setAttribute(self,attr,value,sessionData=None):
+        if not sessionData or db.fieldACLAccess(sessionData,self.acl,attr,accessType="write"):
+            if attr == "customSearch":
+                value = helpers.unicodeEscapeDict(value)
+        return super(_ingaGetScanUp, self).setAttribute(attr,value,sessionData=sessionData)
