@@ -9,7 +9,10 @@ from netaddr import *
 from urllib3.exceptions import InsecureRequestWarning
 from core import settings, helpers, audit, db
 from core.models import action
+
 from plugins.inga.models import inga
+from plugins.remote.includes import helpers as remoteHelpers
+
 
 class _ingaIPDiscoverAction(action._action):
     scanName = str()
@@ -339,7 +342,7 @@ class _ingaWebServerDetect(action._action):
                 if self.timeout != 0:
                     timeout = self.timeout
                     
-                response = self.runRemoteFunction(persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
+                response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
                 if "error" not in response:
                     headers = helpers.lower_dict(response["headers"])
                     for excludeHeader in self.excludeHeaders:
