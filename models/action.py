@@ -5,9 +5,8 @@ from pathlib import Path
 from selenium import webdriver
 import subprocess
 import requests
-from urllib3.exceptions import InsecureRequestWarning
 from netaddr import *
-
+from urllib3.exceptions import InsecureRequestWarning
 from core import settings, helpers, audit, db
 from core.models import action
 from plugins.inga.models import inga
@@ -19,6 +18,7 @@ class _ingaIPDiscoverAction(action._action):
     stateChange = bool()
     runRemote = bool()
     pingOnly = bool()
+    lastScanAtLeast = int()
 
     def run(self,data,persistentData,actionResult):
         ips = IPNetwork(self.cidr)
@@ -35,8 +35,10 @@ class _ingaIPDiscoverAction(action._action):
                     ipFound = True
             if not ipFound:
                 inga._inga().new(self.acl,self.scanName,str(ip),False)
-
-        scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
+        if self.lastScanAtLeast > 0:
+            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )])
+        else:
+            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
         discovered = []
         for scanResult in scanResults:
             # Support for running on a remote host
@@ -46,6 +48,11 @@ class _ingaIPDiscoverAction(action._action):
                     exitCode, stdout, stderr = client.command(" ".join(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                     stdout = "\n".join(stdout)
                     stderr = "\n".join(stderr)
+                    if not stdout:
+                        actionResult["result"] = False
+                        actionResult["rc"] = 500
+                        actionResult["msg"] = stderr
+                        return actionResult
             else:
                 process = subprocess.Popen(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
@@ -65,6 +72,11 @@ class _ingaIPDiscoverAction(action._action):
                         exitCode, stdout, stderr = client.command(" ".join(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                         stdout = "\n".join(stdout)
                         stderr = "\n".join(stderr)
+                        if not stdout:
+                            actionResult["result"] = False
+                            actionResult["rc"] = 500
+                            actionResult["msg"] = stderr
+                            return actionResult
                 else:
                     process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout, stderr = process.communicate()
@@ -88,6 +100,11 @@ class _ingaIPDiscoverAction(action._action):
                             exitCode, stdout, stderr = client.command(" ".join(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                             stdout = "\n".join(stdout)
                             stderr = "\n".join(stderr)
+                            if not stdout:
+                                actionResult["result"] = False
+                                actionResult["rc"] = 500
+                                actionResult["msg"] = stderr
+                                return actionResult
                     else:
                         process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                         stdout, stderr = process.communicate()
@@ -167,6 +184,11 @@ class _ingaPortScan(action._action):
                         exitCode, stdout, stderr = client.command(" ".join(options),elevate=True)
                         stdout = "\n".join(stdout)
                         stderr = "\n".join(stderr)
+                        if not stdout:
+                            actionResult["result"] = False
+                            actionResult["rc"] = 500
+                            actionResult["msg"] = stderr
+                            return actionResult
                 else:
                     process = subprocess.Popen(options, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     try:
@@ -288,14 +310,26 @@ class _ingaWebServerDetect(action._action):
     ip = str()
     port = str()
     timeout = int()
-    updateScan = dict()
     excludeHeaders = list()
+    scanName = str()
+    runRemote = bool()
+
+    # BETA testing of remote action helper
+    def webserverConnect(self,functionInputDict):
+        import requests
+        from urllib3.exceptions import InsecureRequestWarning
+        requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+        protocol = functionInputDict["protocol"]
+        ip = functionInputDict["ip"]
+        port = functionInputDict["port"]
+        timeout = functionInputDict["timeout"]
+        response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+        return { "headers" : response.headers, "status_code" : response.status_code }
 
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
         port = helpers.evalString(self.port,{"data" : data})
-
-        requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+        scanName = helpers.evalString(self.scanName,{"data" : data})
 
         protocols = ["http", "https"]
         for protocol in protocols:
@@ -303,36 +337,37 @@ class _ingaWebServerDetect(action._action):
                 timeout = 5
                 if self.timeout != 0:
                     timeout = self.timeout
-                response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
-                headers = helpers.lower_dict(response.headers)
-                for excludeHeader in self.excludeHeaders:
-                    if excludeHeader in headers:
-                        del headers[excludeHeader]
-                if protocol == "http":
-                    if response.status_code == 301:
-                        if "location" in headers:
-                            if "https" in headers["location"]:
-                                actionResult["data"]["protocol"] = "https"
-                                actionResult["data"]["headers"] = headers
-                                actionResult["result"] = False
-                                actionResult["rc"] = 301
-                                return actionResult
-                # Update scan if updateScan mapping was provided
-                updateScan = helpers.evalDict(self.updateScan,{ "data" : data })
-                if len(updateScan) > 0:
-                    updateResult = inga._inga().api_update(query={ "scanName": updateScan["scanName"], "ip": updateScan["ip"], "ports.{0}.{1}.webServerDetect.headers".format(updateScan["protocol"],updateScan["port"]) : { "$ne" : headers } },update={ "$set" : { "ports.{0}.{1}.webServerDetect".format(updateScan["protocol"],updateScan["port"]) : { "protocol" : protocol, "headers" : headers  } } })
-                    if updateResult["count"] > 0:
-                        actionResult["data"]["protocol"] = protocol
-                        actionResult["data"]["headers"] = headers
-                        actionResult["result"] = True
-                        actionResult["rc"] = 205
-                        return actionResult
+                    
+                response = self.runRemoteFunction(persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
+                if "error" not in response:
+                    headers = helpers.lower_dict(response["headers"])
+                    for excludeHeader in self.excludeHeaders:
+                        if excludeHeader in headers:
+                            del headers[excludeHeader]
+                    if protocol == "http":
+                        if response["status_code"] == 301:
+                            if "location" in headers:
+                                if "https" in headers["location"]:
+                                    actionResult["data"]["protocol"] = "https"
+                                    actionResult["data"]["headers"] = headers
+                                    actionResult["result"] = False
+                                    actionResult["rc"] = 301
+                                    return actionResult
+                    # Update scan if updateScan mapping was provided
+                    if len(scanName) > 0:
+                        updateResult = inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "ports.tcp.{1}.webServerDetect.headers".format(port) : { "$ne" : headers } },update={ "$set" : { "ports.tcp.{1}.webServerDetect".format(port) : { "protocol" : protocol, "headers" : headers  } } })
+                        if updateResult["count"] > 0:
+                            actionResult["data"]["protocol"] = protocol
+                            actionResult["data"]["headers"] = headers
+                            actionResult["result"] = True
+                            actionResult["rc"] = 205
+                            return actionResult
 
-                actionResult["data"]["protocol"] = protocol
-                actionResult["data"]["headers"] = headers
-                actionResult["result"] = True
-                actionResult["rc"] = 304
-                return actionResult
+                    actionResult["data"]["protocol"] = protocol
+                    actionResult["data"]["headers"] = headers
+                    actionResult["result"] = True
+                    actionResult["rc"] = 304
+                    return actionResult
             except:
                 pass
 

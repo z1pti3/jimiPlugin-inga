@@ -14,6 +14,7 @@ class _ingaIPDiscover(trigger._trigger):
     scanQuantity = int()
     cidr = str()
     stateChange = bool()
+    lastScanAtleast = int()
 
     def check(self):
         ips = IPNetwork(self.cidr)
@@ -31,7 +32,10 @@ class _ingaIPDiscover(trigger._trigger):
             if not ipFound:
                 inga._inga().new(self.scanName,str(ip),False)
 
-        scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
+        if self.lastScanAtleast > 0:
+            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtleast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )])
+        else:
+            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
         discovered = []
         for scanResult in scanResults:
             process = subprocess.Popen(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
