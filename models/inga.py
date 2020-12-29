@@ -20,6 +20,7 @@ class _inga(db._document):
         self.name = ip
         self.ip = ip
         self.up = up
+        self.ports = { "scanDetails" : { "lastPortScan" : 0 } }
         return super(_inga, self).new()
 
     def updateRecord(self, ip, up):

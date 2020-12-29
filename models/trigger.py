@@ -5,7 +5,7 @@ import subprocess
 from netaddr import *
 
 from core.models import trigger
-from core import db
+from core import db, helpers
 
 from plugins.inga.models import inga
 
@@ -99,9 +99,9 @@ class _ingaGetScanUp(trigger._trigger):
                 search[key] = value
 
         if self.limit > 0:
-            self.result["events"] = inga._inga().query(query=search,limit=self.limit)["results"]
+            self.result["events"] = inga._inga().query(query=search,limit=self.limit,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
         else:
-            self.result["events"] = inga._inga().query(query=search)["results"]
+            self.result["events"] = inga._inga().query(query=search,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
 
     def setAttribute(self,attr,value,sessionData=None):
         if not sessionData or db.fieldACLAccess(sessionData,self.acl,attr,accessType="write"):

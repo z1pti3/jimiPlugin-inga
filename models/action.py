@@ -331,6 +331,7 @@ class _ingaWebServerDetect(action._action):
         port = helpers.evalString(self.port,{"data" : data})
         scanName = helpers.evalString(self.scanName,{"data" : data})
 
+        result = {}
         protocols = ["http", "https"]
         for protocol in protocols:
             try:
@@ -344,35 +345,21 @@ class _ingaWebServerDetect(action._action):
                     for excludeHeader in self.excludeHeaders:
                         if excludeHeader in headers:
                             del headers[excludeHeader]
-                    if protocol == "http":
-                        if response["status_code"] == 301:
-                            if "location" in headers:
-                                if "https" in headers["location"]:
-                                    actionResult["data"]["protocol"] = "https"
-                                    actionResult["data"]["headers"] = headers
-                                    actionResult["result"] = False
-                                    actionResult["rc"] = 301
-                                    return actionResult
                     # Update scan if updateScan mapping was provided
                     if len(scanName) > 0:
-                        updateResult = inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "ports.tcp.{1}.webServerDetect.headers".format(port) : { "$ne" : headers } },update={ "$set" : { "ports.tcp.{1}.webServerDetect".format(port) : { "protocol" : protocol, "headers" : headers  } } })
-                        if updateResult["count"] > 0:
-                            actionResult["data"]["protocol"] = protocol
-                            actionResult["data"]["headers"] = headers
-                            actionResult["result"] = True
-                            actionResult["rc"] = 205
-                            return actionResult
+                        inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "ports.tcp.{0}.webServerDetect.{1}.headers".format(port,protocol) : { "$ne" : headers } },update={ "$set" : { "ports.tcp.{0}.webServerDetect.{1}".format(port,protocol) : { "protocol" : protocol, "headers" : headers  } } })
 
-                    actionResult["data"]["protocol"] = protocol
-                    actionResult["data"]["headers"] = headers
-                    actionResult["result"] = True
-                    actionResult["rc"] = 304
-                    return actionResult
+                    result[protocol] = { "protocol" : protocol, "headers" : headers }
             except:
                 pass
 
-        actionResult["result"] = False
-        actionResult["rc"] = 404
+        if result:
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+            actionResult["serverDetails"] = result
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 404
         return actionResult           
 
 
@@ -391,9 +378,9 @@ class _ingaGetScanUpAction(action._action):
         actionResult["result"] = True
         actionResult["rc"] = 0
         if self.limit > 0:
-            actionResult["events"] = inga._inga().query(query=search,limit=self.limit)["results"]
+            actionResult["events"] = inga._inga().query(query=search,limit=self.limit,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
         else:
-            actionResult["events"] = inga._inga().query(query=search)["results"]
+            actionResult["events"] = inga._inga().query(query=search,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
         return actionResult
 
     def setAttribute(self,attr,value,sessionData=None):
