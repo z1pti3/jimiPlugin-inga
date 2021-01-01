@@ -37,7 +37,7 @@ def mainPage():
 @pluginPages.route("/inga/scan/")
 def getScan():
     scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
-    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True })["results"]
+    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["scanName","ip","up","lastScan","ports"])["results"]
     if "ipToPorts" in request.args:
         ipToPorts = []
         for scan in results:
@@ -67,3 +67,16 @@ def getScan():
                 pass
         return { "results" : ips }, 200
     return render_template("scan.html", scanResults=results)
+
+@pluginPages.route("/inga/scan/images/")
+def getScanImages():
+    scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
+    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["portData"])["results"]
+    result = []
+    for scan in results:
+        try:
+            for port,portValue in scan["portData"]["tcp"].items():
+                result.append(portValue["webScreenShot"]["fileData"])
+        except KeyError:
+            pass
+    return render_template("scanImages.html", result=result)

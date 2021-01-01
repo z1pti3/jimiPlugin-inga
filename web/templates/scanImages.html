@@ -1,0 +1,19 @@
+<script src="{{ url_for('static', filename='includes/jquery/js/jquery-3.4.1.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='includes/bootstrap-3.3.7/css/bootstrap.min.css') }}">
+<script src="{{ url_for('static', filename='includes/bootstrap-3.3.7/js/bootstrap.min.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/datatable.css') }}">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='themes/default/default.css') }}">
+
+<html>
+    <head>
+        
+    </head>
+    <body class="theme-panelContainer">
+        {% for img in result %}
+            <img src="data:image/png;base64,{{ img }}" width="800px"></img>
+        {% endfor %}
+    </body>
+</html>

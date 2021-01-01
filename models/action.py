@@ -2,7 +2,6 @@ import time
 import uuid
 import re
 from pathlib import Path
-from selenium import webdriver
 import subprocess
 import requests
 from netaddr import *
@@ -272,12 +271,25 @@ class _ingaPortScan(action._action):
         return actionResult
 
 class _ingaWebScreenShot(action._action):
+    ip = str()
+    port = str()
     url = str()
     timeout = int()
     updateScan = dict()
+    outputDir = "/tmp"
+    scanName = str()
+    runRemote = bool()
 
-    def run(self,data,persistentData,actionResult):
-        url = helpers.evalString(self.url,{"data" : data})
+    def takeScreenshot(self,functionInputDict):
+        from selenium import webdriver
+        import uuid
+        import os
+        from pathlib import Path
+        import base64
+
+        url = functionInputDict["url"]
+        timeout = functionInputDict["timeout"]
+        outputDir = functionInputDict["outputDir"]
 
         profile = webdriver.FirefoxProfile()
         profile.accept_untrusted_certs = True
@@ -285,28 +297,41 @@ class _ingaWebScreenShot(action._action):
         fireFoxOptions.set_headless()
         wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
         wdriver.set_window_size(1920, 1080)
-        timeout = 5
-        if self.timeout != 0:
-            timeout = self.timeout
         wdriver.set_page_load_timeout(timeout)
         try:
             wdriver.get(url)
+            
             filename  = "{0}.png".format(str(uuid.uuid4()))
-            wdriver.save_screenshot(str(Path("plugins/inga/output/{0}".format(filename))))
-
-            # Update scan if updateScan mapping was provided
-            updateScan = helpers.evalDict(self.updateScan,{ "data" : data })
-            if len(updateScan) > 0:
-                inga._inga().api_update(query={ "scanName": updateScan["scanName"], "ip": updateScan["ip"] },update={ "$set" : { "ports.{0}.{1}.webScreenShot".format(updateScan["protocol"],updateScan["port"]) : { "filename" : filename } } })
-
-            actionResult["result"] = True
-            actionResult["rc"] = 0
-            actionResult["data"] = { "filename" : filename }
-        except:
-            actionResult["result"] = False
-            actionResult["rc"] = 100
+            wdriver.save_screenshot(str(Path("{0}/{1}".format(outputDir,filename))))
+            with open(str(Path("{0}/{1}".format(outputDir,filename))), mode='rb') as file: 
+                fileData = file.read()
+            os.remove(str(Path("{0}/{1}".format(outputDir,filename))))
         finally:
             wdriver.quit()
+        return { "fileData" : base64.b64encode(fileData).decode() }
+
+    def run(self,data,persistentData,actionResult):
+        ip = helpers.evalString(self.ip,{"data" : data})
+        port = helpers.evalString(self.port,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+        url = helpers.evalString(self.url,{"data" : data})
+        outputDir = helpers.evalString(self.outputDir,{"data" : data})
+        timeout = 5
+        if self.timeout != 0:
+            timeout = self.timeout
+
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
+        if "error" not in response:
+            inga._inga().api_update(query={ "scanName": scanName, "ip": ip },update={ "$set" : { "portData.tcp.{0}.webScreenShot".format(port) : { "fileData" : response["fileData"] } } })
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+            actionResult["fileData"] = response["fileData"]
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 500
+            actionResult["msg"] = response["error"]
+            actionResult["stderr"] = response["stderr"]
+            actionResult["stdout"] = response["stdout"]
         return actionResult
 
 class _ingaWebServerDetect(action._action):
@@ -350,7 +375,7 @@ class _ingaWebServerDetect(action._action):
                             del headers[excludeHeader]
                     # Update scan if updateScan mapping was provided
                     if len(scanName) > 0:
-                        inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "ports.tcp.{0}.webServerDetect.headers".format(port) : { "$ne" : headers } },update={ "$set" : { "ports.tcp.{0}.webServerDetect".format(port) : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "portData.tcp.{0}.webServerDetect.headers".format(port) : { "$ne" : headers } },update={ "$set" : { "portData.tcp.{0}.webServerDetect".format(port) : { "protocol" : protocol, "headers" : headers  } } })
 
                     result[protocol] = { "protocol" : protocol, "headers" : headers }
             except:
