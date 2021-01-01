@@ -43,7 +43,8 @@ def getScan():
         for scan in results:
             try:
                 for portKey, portValue in scan["ports"]["tcp"].items():
-                    ipToPorts.append([scan["ip"],portValue["port"]])
+                    if portValue["state"] == "open":
+                        ipToPorts.append([scan["ip"],portValue["port"]])
             except KeyError:
                 pass
         return { "results" : ipToPorts }, 200
@@ -54,15 +55,24 @@ def getScan():
                 for portKey, portValue in scan["ports"]["tcp"].items():
                     if portValue["port"] not in ports:
                         ports[portValue["port"]] = 0
-                    ports[portValue["port"]]+=1
+                    if portValue["state"] == "open":
+                        ports[portValue["port"]]+=1
             except KeyError:
                 pass
         return { "results" : ports }, 200
     elif "ipCount" in request.args:
         ips = { }
         for scan in results:
+            c = 0
             try:
-                ips[scan["ip"]] = len(scan["ports"]["tcp"])
+                for portKey, portValue in scan["ports"]["tcp"].items():
+                    if portValue["state"] == "open":
+                        c += 1
+                if c > 0:
+                    try:
+                        ips[scan["ip"]] = c
+                    except KeyError:
+                        pass
             except KeyError:
                 pass
         return { "results" : ips }, 200
