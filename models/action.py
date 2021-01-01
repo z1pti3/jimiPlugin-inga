@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import subprocess
 import requests
+import base64
 from netaddr import *
 from urllib3.exceptions import InsecureRequestWarning
 from core import settings, helpers, audit, db
@@ -204,67 +205,72 @@ class _ingaPortScan(action._action):
 
 
                 openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
-                change = False
-                new = False
-                updates = { "new" : [], "removed" : [] }
+                updates = { "new" : [], "update" : [], "removed" : [] }
                 foundPorts = []
+                #udp = [ x["port"] for x in scan.ports["udp"] ]
                 for index, logicMatch in enumerate(openPorts):
                     portNumber = logicMatch.group(1).strip()
                     portType = logicMatch.group(2).strip()
                     portState = logicMatch.group(3).strip()
                     portService = logicMatch.group(4).strip()
 
+                    currentPort = [ x for x in scan.ports["tcp"] if x["port"] == portNumber ]
+                    if currentPort:
+                        currentPort = currentPort[0]
+                    portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : helpers.dictValue(currentPort,"data") }
+
                     if portNumber not in foundPorts:
                         foundPorts.append(portNumber)
 
-                        if portType not in scan.ports:
-                            scan.ports[portType] = {}
-                        if portNumber not in scan.ports[portType]:
-                            scan.ports[portType][portNumber] = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService }
-                            updates["new"].append(scan.ports[portType][portNumber])
-                            new = True
-                        elif scan.ports[portType][portNumber]["state"] != portState or scan.ports[portType][portNumber]["service"] != portService:
-                            if scan.ports[portType][portNumber]["state"] != portState:
-                                scan.ports[portType][portNumber]["state"] = portState
-                                change = True
-                            if scan.ports[portType][portNumber]["service"] != portService:
-                                scan.ports[portType][portNumber]["service"] = portService
-                                change = True
-                            updates["new"].append(scan.ports[portType][portNumber])
-                        elif not self.stateChange:
-                            updates["new"].append(scan.ports[portType][portNumber])
-
+                        if not currentPort:
+                            updates["new"].append(portDict)
+                        else:
+                            if currentPort != portDict:
+                                updates["update"].append(portDict)
+                            elif not self.stateChange and currentPort != portDict:
+                                updates["update"].append(portDict)
+                            
                 poplist = []
                 try:
-                    for port in scan.ports["tcp"]:
+                    for port in  [ x["port"] for x in scan.ports["tcp"] ]:
                         if port not in foundPorts:
                             poplist.append(port)
                     for port in poplist:
-                        updates["removed"].append(scan.ports["tcp"][port])
-                        del scan.ports["tcp"][port] 
-                        change = True
+                        currentPort = [ x for x in scan.ports["tcp"] if x["port"] == port ]
+                        if currentPort:
+                            currentPort = currentPort[0]
+                            updates["removed"].append(currentPort)
                 except KeyError:
                     pass
 
-                if "scanDetails" not in scan.ports:
-                    scan.ports["scanDetails"] = { "lastPortScan" : 0 }
                 scan.ports["scanDetails"]["lastPortScan"] = time.time()
                 scan.update(["ports"])
 
-                if new or change:
+                if len(updates["new"]) > 0 or len(updates["update"]) > 0:
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
                 actionResult["result"] = True
+                actionResult["rc"] = 0
                 actionResult["data"]["portScan"] = updates
-                if new:
-                    actionResult["rc"] = 201
-                elif change:
+
+                bulkOps = scan._dbCollection.initialize_ordered_bulk_op()
+                if len(updates["update"]) > 0:
                     actionResult["rc"] = 302
-                else:
-                    if len(foundPorts) > 0:
-                        actionResult["rc"] = 304
-                    else:
-                        actionResult["rc"] = 0
+                    for port in updates["update"]:   
+                        bulkOps.find({ "scanName" : scanName, "ip" : ip, "ports.tcp.port" : port["port"] }).update_one({ "$set" : { "ports.tcp.$.state" : port["state"], "ports.tcp.$.service" : port["service"] } })           
+
+                if len(updates["new"]) > 0:
+                    actionResult["rc"] = 201
+                    for port in updates["new"]:
+                        bulkOps.find({ "scanName" : scanName, "ip" : ip }).update_one({ "$push" : { "ports.tcp" : port } })   
+
+                for port in updates["removed"]:
+                    bulkOps.find({ "scanName" : scanName, "ip" : ip, "ports.tcp.port" : port["port"] }).update_one({ "$pull" : { "ports.tcp" : { "port" : port["port"] } } })   
+                bulkOps.execute()
+
+                if actionResult["rc"] == 0 and len(foundPorts) > 0:
+                    actionResult["rc"] = 304
+
                 return actionResult
         actionResult["result"] = False
         actionResult["rc"] = 1
@@ -322,10 +328,14 @@ class _ingaWebScreenShot(action._action):
 
         response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
         if "error" not in response:
-            inga._inga().api_update(query={ "scanName": scanName, "ip": ip },update={ "$set" : { "portData.tcp.{0}.webScreenShot".format(port) : { "fileData" : response["fileData"] } } })
+            filename  = "{0}.png".format(str(uuid.uuid4()))
+            with open(str(Path("output/{0}".format(filename))), mode='wb') as file: 
+                file.write(base64.b64decode(response["fileData"].encode()))
+
+            inga._inga()._dbCollection.update_one(query={ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },update={ "$set" : { "ports.tcp.data.webScreenShot" : { "filename" : filename } } })
             actionResult["result"] = True
             actionResult["rc"] = 0
-            actionResult["fileData"] = response["fileData"]
+            actionResult["filename"] = filename
         else:
             actionResult["result"] = False
             actionResult["rc"] = 500
@@ -375,7 +385,7 @@ class _ingaWebServerDetect(action._action):
                             del headers[excludeHeader]
                     # Update scan if updateScan mapping was provided
                     if len(scanName) > 0:
-                        inga._inga().api_update(query={ "scanName": scanName, "ip": ip, "portData.tcp.{0}.webServerDetect.headers".format(port) : { "$ne" : headers } },update={ "$set" : { "portData.tcp.{0}.webServerDetect".format(port) : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga()._dbCollection.update_one(query={ "scanName": scanName, "ip": ip, "port.tcp.port" : port, "port.tcp.port.data.webServerDetect.headers" : { "$ne" : headers } },update={ "$set" : { "port.tcp.port.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
 
                     result[protocol] = { "protocol" : protocol, "headers" : headers }
             except:
