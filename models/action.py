@@ -387,7 +387,7 @@ class _ingaWebServerDetect(action._action):
                             del headers[excludeHeader]
                     # Update scan if updateScan mapping was provided
                     if len(scanName) > 0:
-                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "port.tcp.port" : port },{ "$set" : { "port.tcp.port.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "port.tcp.port" : port },{ "$set" : { "port.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
 
                     result[protocol] = { "protocol" : protocol, "headers" : headers }
             except:
