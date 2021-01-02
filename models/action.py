@@ -146,7 +146,6 @@ class _ingaIPDiscoverAction(action._action):
             actionResult["rc"] = 404
         return actionResult
 
-
 class _ingaPortScan(action._action):
     ports = str()
     ip = str()
@@ -334,6 +333,16 @@ class _ingaWebScreenShot(action._action):
 
         response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
         if "error" not in response:
+            # check for existing screenshot and delete it
+            scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
+            if len(scan) > 0:
+                scan = scan[0]
+                try:
+                    for scanPort in scan.ports["tcp"]:
+                        if scanPort["port"] == port:
+                            storage._storage().api_delete(id=scanPort["data"]["webScreenShot"]["storageID"])
+                except KeyError:
+                    pass
             newStorageItem = storage._storage().new(self.acl,response["fileData"])
             inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id) } } })
             actionResult["result"] = True
@@ -398,6 +407,41 @@ class _ingaWebServerDetect(action._action):
             actionResult["result"] = False
             actionResult["rc"] = 404
         return actionResult           
+
+class _ingatheHarvester(action._action):
+    scanName = str()
+    topLevelDomain = str()
+    runRemote = bool()
+
+    def runtheHarvester(self,functionInputDict):
+        import subprocess
+        import re
+        topLevelDomain = functionInputDict["topLevelDomain"]
+        process = subprocess.Popen(["python3","theHarvester.py","-d",topLevelDomain,"-b","bing,dnsdumpster,duckduckgo,projectdiscovery,yahoo,baidu,bufferoverun,certspotter,crtsh,sublist3r"], cwd="/opt/theHarvester/", shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        stdout = stdout.decode()
+        stderr = stderr.decode()
+        domains = re.findall(".*{0}".format(topLevelDomain.replace(".","\\.")),stdout.split("[*] Hosts found:")[1])
+        return { "domains" : domains }
+
+    def run(self,data,persistentData,actionResult):
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+        topLevelDomain = helpers.evalString(self.topLevelDomain,{"data" : data})
+
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.runtheHarvester,{"topLevelDomain" : topLevelDomain})
+        if "error" not in response:
+            if len(scanName) > 0:
+                pass
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+            actionResult["domains"] = response["domains"]
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 500
+            actionResult["msg"] = response["error"]
+            actionResult["stderr"] = response["stderr"]
+            actionResult["stdout"] = response["stdout"]
+        return actionResult
 
 
 class _ingaGetScanUpAction(action._action):    
