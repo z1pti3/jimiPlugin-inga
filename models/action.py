@@ -217,7 +217,9 @@ class _ingaPortScan(action._action):
                     currentPort = [ x for x in scan.ports["tcp"] if x["port"] == portNumber ]
                     if currentPort:
                         currentPort = currentPort[0]
-                    portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : helpers.dictValue(currentPort,"data") }
+                        portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : currentPort["data"] }
+                    else:
+                        portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : { } }
 
                     if portNumber not in foundPorts:
                         foundPorts.append(portNumber)
