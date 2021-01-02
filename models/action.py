@@ -7,7 +7,7 @@ import requests
 import base64
 from netaddr import *
 from urllib3.exceptions import InsecureRequestWarning
-from core import settings, helpers, audit, db
+from core import settings, helpers, audit, db, storage
 from core.models import action
 
 from plugins.inga.models import inga
@@ -24,24 +24,26 @@ class _ingaIPDiscoverAction(action._action):
     lastScanAtLeast = int()
 
     def run(self,data,persistentData,actionResult):
-        ips = IPNetwork(self.cidr)
+        cidr = helpers.evalString(self.cidr,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+        ips = IPNetwork(cidr)
         if self.scanQuantity == 0:
             scanQuantity = len(ips)
         else:
             scanQuantity = self.scanQuantity
 
-        scanResults = inga._inga().query(query={ "scanName" : self.scanName })["results"]
+        scanResults = inga._inga().query(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan"])["results"]
         for ip in ips:
             ipFound = False
             for scanResult in scanResults:
                 if str(ip) == scanResult["ip"]:
                     ipFound = True
             if not ipFound:
-                inga._inga().new(self.acl,self.scanName,str(ip),False)
+                inga._inga().new(self.acl,scanName,str(ip),False)
         if self.lastScanAtLeast > 0:
-            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )])
+            scanResults = inga._inga().getAsClass(query={ "scanName" : scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
         else:
-            scanResults = inga._inga().getAsClass(query={ "scanName" : self.scanName },limit=scanQuantity,sort=[( "lastScan", 1 )])
+            scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
         discovered = []
         for scanResult in scanResults:
             # Support for running on a remote host
@@ -67,7 +69,7 @@ class _ingaIPDiscoverAction(action._action):
                     scanResult.updateRecord(scanResult.ip,True)
                     change = True
                 if not self.stateChange or change:
-                    discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
+                    discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
             elif self.pingOnly == False:
                 if self.runRemote and "remote" in persistentData:
                     if "client" in persistentData["remote"]:
@@ -95,7 +97,7 @@ class _ingaIPDiscoverAction(action._action):
                         scanResult.updateRecord(scanResult.ip,True)
                         change = True
                     if not self.stateChange or change:
-                        discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
+                        discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
                 else:
                     if self.runRemote and "remote" in persistentData:
                         if "client" in persistentData["remote"]:
@@ -124,13 +126,13 @@ class _ingaIPDiscoverAction(action._action):
                             scanResult.updateRecord(scanResult.ip,True)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : self.scanName })
+                            discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
                     else:
                         if scanResult.up != False:
                             scanResult.updateRecord(scanResult.ip,False)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : False, "scanName" : self.scanName })
+                            discovered.append({ "ip" : scanResult.ip, "up" : False, "scanName" : scanName })
             if not change:
                 scanResult.lastScan = int(time.time())
                 scanResult.update(["lastScan"])
@@ -209,7 +211,7 @@ class _ingaPortScan(action._action):
                 foundPorts = []
                 #udp = [ x["port"] for x in scan.ports["udp"] ]
                 for index, logicMatch in enumerate(openPorts):
-                    portNumber = logicMatch.group(1).strip()
+                    portNumber = int(logicMatch.group(1).strip())
                     portType = logicMatch.group(2).strip()
                     portState = logicMatch.group(3).strip()
                     portService = logicMatch.group(4).strip()
@@ -229,7 +231,7 @@ class _ingaPortScan(action._action):
                         else:
                             if currentPort != portDict:
                                 updates["update"].append(portDict)
-                            elif not self.stateChange and currentPort != portDict:
+                            elif not self.stateChange:
                                 updates["update"].append(portDict)
                             
                 poplist = []
@@ -268,9 +270,11 @@ class _ingaPortScan(action._action):
 
                 for port in updates["removed"]:
                     bulkOps.find({ "scanName" : scanName, "ip" : ip, "ports.tcp.port" : port["port"] }).update_one({ "$pull" : { "ports.tcp" : { "port" : port["port"] } } })   
-                bulkOps.execute()
+                
+                if len(updates["new"]) > 0 or len(updates["update"]) > 0 or len(updates["removed"]) > 0:
+                    bulkOps.execute()
 
-                if actionResult["rc"] == 0 and len(foundPorts) > 0:
+                if actionResult["rc"] == 0 and len(foundPorts) > 0: 
                     actionResult["rc"] = 304
 
                 return actionResult
@@ -330,14 +334,11 @@ class _ingaWebScreenShot(action._action):
 
         response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
         if "error" not in response:
-            filename  = "{0}.png".format(str(uuid.uuid4()))
-            with open(str(Path("output/{0}".format(filename))), mode='wb') as file: 
-                file.write(base64.b64decode(response["fileData"].encode()))
-
-            inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "filename" : filename } } })
+            newStorageItem = storage._storage().new(self.acl,response["fileData"])
+            inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id) } } })
             actionResult["result"] = True
             actionResult["rc"] = 0
-            actionResult["filename"] = filename
+            actionResult["storageID"] = str(newStorageItem.inserted_id)
         else:
             actionResult["result"] = False
             actionResult["rc"] = 500
@@ -371,27 +372,23 @@ class _ingaWebServerDetect(action._action):
         port = helpers.evalString(self.port,{"data" : data})
         scanName = helpers.evalString(self.scanName,{"data" : data})
 
-        result = {}
+        result = []
         protocols = ["http", "https"]
         for protocol in protocols:
-            try:
-                timeout = 5
-                if self.timeout != 0:
-                    timeout = self.timeout
-                    
-                response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
-                if "error" not in response:
-                    headers = helpers.lower_dict(response["headers"])
-                    for excludeHeader in self.excludeHeaders:
-                        if excludeHeader in headers:
-                            del headers[excludeHeader]
-                    # Update scan if updateScan mapping was provided
-                    if len(scanName) > 0:
-                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "port.tcp.port" : port },{ "$set" : { "port.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
-
-                    result[protocol] = { "protocol" : protocol, "headers" : headers }
-            except:
-                pass
+            timeout = 5
+            if self.timeout != 0:
+                timeout = self.timeout
+                
+            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
+            if "error" not in response:
+                headers = helpers.lower_dict(response["headers"])
+                for excludeHeader in self.excludeHeaders:
+                    if excludeHeader in headers:
+                        del headers[excludeHeader]
+                # Update scan if updateScan mapping was provided
+                if len(scanName) > 0:
+                    inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
+                result.append({ "protocol" : protocol, "headers" : headers })
 
         if result:
             actionResult["result"] = True

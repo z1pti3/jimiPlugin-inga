@@ -6,7 +6,7 @@ from markupsafe import Markup
 from flask import Blueprint, render_template
 from flask import current_app as app
 
-from core import api
+from core import api, db, storage
 from plugins.inga.models import inga
 
 pluginPages = Blueprint('ingaPages', __name__, template_folder="templates")
@@ -42,9 +42,9 @@ def getScan():
         ipToPorts = []
         for scan in results:
             try:
-                for portKey, portValue in scan["ports"]["tcp"].items():
+                for portValue in scan["ports"]["tcp"]:
                     if portValue["state"] == "open":
-                        ipToPorts.append([scan["ip"],portValue["port"]])
+                        ipToPorts.append([scan["ip"],str(portValue["port"])])
             except KeyError:
                 pass
         return { "results" : ipToPorts }, 200
@@ -52,7 +52,7 @@ def getScan():
         ports = { }
         for scan in results:
             try:
-                for portKey, portValue in scan["ports"]["tcp"].items():
+                for portValue in scan["ports"]["tcp"]:
                     if portValue["port"] not in ports:
                         ports[portValue["port"]] = 0
                     if portValue["state"] == "open":
@@ -65,7 +65,7 @@ def getScan():
         for scan in results:
             c = 0
             try:
-                for portKey, portValue in scan["ports"]["tcp"].items():
+                for portValue in scan["ports"]["tcp"]:
                     if portValue["state"] == "open":
                         c += 1
                 if c > 0:
@@ -81,15 +81,22 @@ def getScan():
 @pluginPages.route("/inga/scan/images/")
 def getScanImages():
     scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
-    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["portData","ip"])["results"]
+    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["ports","ip"])["results"]
     result = []
+    ids = []
     for scan in results:
         try:
-            for port,portValue in scan["portData"]["tcp"].items():
-                if port == "443":
-                    result.append({"ip" : scan["ip"], "port" : port, "fileData" : portValue["webScreenShot"]["fileData"], "type" : "https"})
-                else:
-                    result.append({"ip" : scan["ip"], "port" : port, "fileData" : portValue["webScreenShot"]["fileData"], "type" : "http"})
+            for portValue in scan["ports"]["tcp"]:
+                try:
+                    ids.append(db.ObjectId(portValue["data"]["webScreenShot"]["storageID"]))
+                    result.append({ "ip" : scan["ip"], "port" : str(portValue["port"]), "type" : portValue["data"]["webServerDetect"]["protocol"], "fileData" : portValue["data"]["webScreenShot"]["storageID"] })
+                except KeyError:
+                    pass
         except KeyError:
             pass
+    results = storage._storage().query(api.g.sessionData,query={ "_id" : { "$in" : ids } })["results"]
+    for item in result:
+        for storageResult in results:
+            if item["fileData"] == str(storageResult["_id"]):
+                item["fileData"] = storageResult["fileData"]
     return render_template("scanImages.html", result=result)
