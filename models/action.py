@@ -334,7 +334,7 @@ class _ingaWebScreenShot(action._action):
             with open(str(Path("output/{0}".format(filename))), mode='wb') as file: 
                 file.write(base64.b64decode(response["fileData"].encode()))
 
-            inga._inga()._dbCollection.update_one(query={ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },update={ "$set" : { "ports.tcp.$.data.webScreenShot" : { "filename" : filename } } })
+            inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "filename" : filename } } })
             actionResult["result"] = True
             actionResult["rc"] = 0
             actionResult["filename"] = filename
@@ -387,7 +387,7 @@ class _ingaWebServerDetect(action._action):
                             del headers[excludeHeader]
                     # Update scan if updateScan mapping was provided
                     if len(scanName) > 0:
-                        inga._inga()._dbCollection.update_one(query={ "scanName": scanName, "ip": ip, "port.tcp.port" : port },update={ "$set" : { "port.tcp.port.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "port.tcp.port" : port },{ "$set" : { "port.tcp.port.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
 
                     result[protocol] = { "protocol" : protocol, "headers" : headers }
             except:
