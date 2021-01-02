@@ -416,13 +416,22 @@ class _ingatheHarvester(action._action):
     def runtheHarvester(self,functionInputDict):
         import subprocess
         import re
+        import time
+        import socket
         topLevelDomain = functionInputDict["topLevelDomain"]
         process = subprocess.Popen(["python3","theHarvester.py","-d",topLevelDomain,"-b","bing,dnsdumpster,duckduckgo,projectdiscovery,yahoo,baidu,bufferoverun,certspotter,crtsh,sublist3r"], cwd="/opt/theHarvester/", shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         stdout = stdout.decode()
         stderr = stderr.decode()
         domains = re.findall(".*{0}".format(topLevelDomain.replace(".","\\.")),stdout.split("[*] Hosts found:")[1])
-        return { "domains" : domains }
+        results = []
+        for domain in domains:
+            try:
+                ip = socket.gethostbyname(domain)
+            except:
+                ip = ""
+            results.append({ "domain" : domain, "ip" : ip, "lastSeen" : time.time() })
+        return { "domains" : results }
 
     def run(self,data,persistentData,actionResult):
         scanName = helpers.evalString(self.scanName,{"data" : data})
@@ -431,7 +440,29 @@ class _ingatheHarvester(action._action):
         response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.runtheHarvester,{"topLevelDomain" : topLevelDomain})
         if "error" not in response:
             if len(scanName) > 0:
-                pass
+                scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan","domains"])
+                for domain in response["domains"]:
+                    scanFound = False
+                    for scanResult in scanResults:
+                        if scanResult.ip == domain["ip"]:
+                            currentEntry = scanResult
+                            scanFound = True
+                            break
+                    if not scanFound:
+                        newId = str(inga._inga().new(self.acl,scanName,domain["ip"],False).inserted_id)
+                        newEntry = inga._inga().getAsClass(id=newId)[0]
+                        scanResults.append(newEntry)
+                        currentEntry = newEntry
+                    currentEntryDomainFound = False
+                    for currentEntryDomain in currentEntry.domains:
+                        if currentEntryDomain["domain"] == domain["domain"]:
+                            currentEntryDomainFound = True
+                            currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"], "domains.domain" : domain["domain"] },{ "$set" : { "domains.$.lastSeen" : domain["lastSeen"] } })
+                            break
+                    if not currentEntryDomainFound:
+                        currentEntry.domains.append(domain)
+                        currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"] },{ "$push" : { "domains" : domain } })
+                
             actionResult["result"] = True
             actionResult["rc"] = 0
             actionResult["domains"] = response["domains"]

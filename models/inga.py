@@ -10,6 +10,7 @@ class _inga(db._document):
     ip = str()
     up = bool()
     lastScan = int()
+    domains = list()
     ports = dict() # { "scanDetails" : { "lastPortScan" : 0 }, "tcp" : [ { "port" : 80, "type" : "tcp", "service" : "http", "data" : { "webserverdetect" : { "headers" : {  }, "propcol" : "http" } } } ], "udp" : [] }
 
     _dbCollection = db.db[dbCollectionName]
