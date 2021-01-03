@@ -391,36 +391,6 @@ class _ingaWebScreenShot(action._action):
     scanName = str()
     runRemote = bool()
 
-    def takeScreenshot(self,functionInputDict):
-        from selenium import webdriver
-        import uuid
-        import os
-        from pathlib import Path
-        import base64
-
-        url = functionInputDict["url"]
-        timeout = functionInputDict["timeout"]
-        outputDir = functionInputDict["outputDir"]
-
-        profile = webdriver.FirefoxProfile()
-        profile.accept_untrusted_certs = True
-        fireFoxOptions = webdriver.FirefoxOptions()
-        fireFoxOptions.set_headless()
-        wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
-        wdriver.set_window_size(1920, 1080)
-        wdriver.set_page_load_timeout(timeout)
-        try:
-            wdriver.get(url)
-            
-            filename  = "{0}.png".format(str(uuid.uuid4()))
-            wdriver.save_screenshot(str(Path("{0}/{1}".format(outputDir,filename))))
-            with open(str(Path("{0}/{1}".format(outputDir,filename))), mode='rb') as file: 
-                fileData = file.read()
-            os.remove(str(Path("{0}/{1}".format(outputDir,filename))))
-        finally:
-            wdriver.quit()
-        return { "fileData" : base64.b64encode(fileData).decode() }
-
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
         port = helpers.evalString(self.port,{"data" : data})
@@ -432,7 +402,7 @@ class _ingaWebScreenShot(action._action):
         if self.timeout != 0:
             timeout = self.timeout
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
         if "error" not in response:
             # check for existing screenshot and delete it
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
@@ -472,22 +442,6 @@ class _ingaWebServerDetect(action._action):
     scanName = str()
     runRemote = bool()
 
-    # BETA testing of remote action helper
-    def webserverConnect(self,functionInputDict):
-        import requests
-        from urllib3.exceptions import InsecureRequestWarning
-        requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-        protocol = functionInputDict["protocol"]
-        ip = functionInputDict["ip"]
-        port = functionInputDict["port"]
-        timeout = functionInputDict["timeout"]
-        domainName = functionInputDict["domainName"]
-        if domainName == "":
-            response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
-        else:
-            response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
-        return { "headers" : response.headers, "status_code" : response.status_code }
-
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
         port = helpers.evalString(self.port,{"data" : data})
@@ -501,7 +455,7 @@ class _ingaWebServerDetect(action._action):
             if self.timeout != 0:
                 timeout = self.timeout
                 
-            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName})
+            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName})
             if "error" not in response:
                 headers = helpers.lower_dict(response["headers"])
                 for excludeHeader in self.excludeHeaders:
@@ -539,31 +493,11 @@ class _ingatheHarvester(action._action):
     topLevelDomain = str()
     runRemote = bool()
 
-    def runtheHarvester(self,functionInputDict):
-        import subprocess
-        import re
-        import time
-        import socket
-        topLevelDomain = functionInputDict["topLevelDomain"]
-        process = subprocess.Popen(["python3","theHarvester.py","-d",topLevelDomain,"-b","bing,dnsdumpster,duckduckgo,projectdiscovery,yahoo,baidu,bufferoverun,certspotter,crtsh,sublist3r"], cwd="/opt/theHarvester/", shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        stdout = stdout.decode()
-        stderr = stderr.decode()
-        domains = re.findall(".*{0}".format(topLevelDomain.replace(".","\\.")),stdout.split("[*] Hosts found:")[1])
-        results = []
-        for domain in domains:
-            try:
-                ip = socket.gethostbyname(domain)
-            except:
-                ip = ""
-            results.append({ "domain" : domain, "ip" : ip, "lastSeen" : time.time() })
-        return { "domains" : results }
-
     def run(self,data,persistentData,actionResult):
         scanName = helpers.evalString(self.scanName,{"data" : data})
         topLevelDomain = helpers.evalString(self.topLevelDomain,{"data" : data})
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.runtheHarvester,{"topLevelDomain" : topLevelDomain})
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,runtheHarvester,{"topLevelDomain" : topLevelDomain})
         if "error" not in response:
             if len(scanName) > 0:
                 scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan","domains"])
@@ -652,3 +586,71 @@ class _ingaGetScanUpAction(action._action):
             if attr == "customSearch":
                 value = helpers.unicodeEscapeDict(value)
         return super(_ingaGetScanUpAction, self).setAttribute(attr,value,sessionData=sessionData)
+
+
+# Remote / Local Fuctions
+
+def takeScreenshot(functionInputDict):
+    from selenium import webdriver
+    import uuid
+    import os
+    from pathlib import Path
+    import base64
+
+    url = functionInputDict["url"]
+    timeout = functionInputDict["timeout"]
+    outputDir = functionInputDict["outputDir"]
+
+    profile = webdriver.FirefoxProfile()
+    profile.accept_untrusted_certs = True
+    fireFoxOptions = webdriver.FirefoxOptions()
+    fireFoxOptions.set_headless()
+    wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
+    wdriver.set_window_size(1920, 1080)
+    wdriver.set_page_load_timeout(timeout)
+    try:
+        wdriver.get(url)
+        
+        filename  = "{0}.png".format(str(uuid.uuid4()))
+        wdriver.save_screenshot(str(Path("{0}/{1}".format(outputDir,filename))))
+        with open(str(Path("{0}/{1}".format(outputDir,filename))), mode='rb') as file: 
+            fileData = file.read()
+        os.remove(str(Path("{0}/{1}".format(outputDir,filename))))
+    finally:
+        wdriver.quit()
+    return { "fileData" : base64.b64encode(fileData).decode() }
+
+def webserverConnect(functionInputDict):
+    import requests
+    from urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+    protocol = functionInputDict["protocol"]
+    ip = functionInputDict["ip"]
+    port = functionInputDict["port"]
+    timeout = functionInputDict["timeout"]
+    domainName = functionInputDict["domainName"]
+    if domainName == "":
+        response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+    else:
+        response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
+    return { "headers" : response.headers, "status_code" : response.status_code }
+
+def runtheHarvester(functionInputDict):
+    import subprocess
+    import re
+    import time
+    import socket
+    topLevelDomain = functionInputDict["topLevelDomain"]
+    process = subprocess.Popen(["python3","theHarvester.py","-d",topLevelDomain,"-b","bing,dnsdumpster,duckduckgo,projectdiscovery,yahoo,baidu,bufferoverun,certspotter,crtsh,sublist3r"], cwd="/opt/theHarvester/", shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    stdout = stdout.decode()
+    stderr = stderr.decode()
+    domains = re.findall(".*{0}".format(topLevelDomain.replace(".","\\.")),stdout.split("[*] Hosts found:")[1])
+    results = []
+    for domain in domains:
+        try:
+            ip = socket.gethostbyname(domain)
+        except:
+            ip = ""
+        results.append({ "domain" : domain, "ip" : ip, "lastSeen" : time.time() })
+    return { "domains" : results }
