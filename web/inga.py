@@ -81,7 +81,7 @@ def getScan():
 @pluginPages.route("/inga/scan/images/")
 def getScanImages():
     scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
-    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["ports","ip"])["results"]
+    results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["ports","ip","domains"])["results"]
     result = []
     ids = []
     for scan in results:
@@ -89,9 +89,16 @@ def getScanImages():
             for portValue in scan["ports"]["tcp"]:
                 try:
                     ids.append(db.ObjectId(portValue["data"]["webScreenShot"]["storageID"]))
-                    result.append({ "ip" : scan["ip"], "port" : str(portValue["port"]), "type" : portValue["data"]["webServerDetect"]["protocol"], "fileData" : portValue["data"]["webScreenShot"]["storageID"] })
+                    result.append({ "url" : "{0}://{1}:{2}".format(portValue["data"]["webServerDetect"]["protocol"],scan["ip"],portValue["port"]), "fileData" : portValue["data"]["webScreenShot"]["storageID"] })
                 except KeyError:
                     pass
+            for domainValue in scan["domains"]:
+                for protocol in ["http","https"]:
+                    try:
+                        ids.append(db.ObjectId(domainValue["data"]["webScreenShot"][protocol]["storageID"]))
+                        result.append({ "url" : "{0}://{1}".format(protocol,domainValue["domain"]), "fileData" : domainValue["data"]["webScreenShot"][protocol]["storageID"] })
+                    except KeyError:
+                        pass
         except KeyError:
             pass
     results = storage._storage().query(api.g.sessionData,query={ "_id" : { "$in" : ids } })["results"]

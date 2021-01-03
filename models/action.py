@@ -285,6 +285,7 @@ class _ingaWebScreenShot(action._action):
     ip = str()
     port = str()
     url = str()
+    domainName = str()
     timeout = int()
     updateScan = dict()
     outputDir = "/tmp"
@@ -326,6 +327,7 @@ class _ingaWebScreenShot(action._action):
         port = helpers.evalString(self.port,{"data" : data})
         scanName = helpers.evalString(self.scanName,{"data" : data})
         url = helpers.evalString(self.url,{"data" : data})
+        domainName = helpers.evalString(self.domainName,{"data" : data})
         outputDir = helpers.evalString(self.outputDir,{"data" : data})
         timeout = 5
         if self.timeout != 0:
@@ -344,7 +346,13 @@ class _ingaWebScreenShot(action._action):
                 except KeyError:
                     pass
             newStorageItem = storage._storage().new(self.acl,response["fileData"])
-            inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id) } } })
+            if domainName == "":
+                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id) } } })
+            else:
+                protocol = "http"
+                if "https://" in url:
+                    protocol = "https"
+                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webScreenShot.{0}".format(protocol) : { "storageID" : str(newStorageItem.inserted_id) } } })
             actionResult["result"] = True
             actionResult["rc"] = 0
             actionResult["storageID"] = str(newStorageItem.inserted_id)
@@ -359,6 +367,7 @@ class _ingaWebScreenShot(action._action):
 class _ingaWebServerDetect(action._action):
     ip = str()
     port = str()
+    domainName = str()
     timeout = int()
     excludeHeaders = list()
     scanName = str()
@@ -373,13 +382,18 @@ class _ingaWebServerDetect(action._action):
         ip = functionInputDict["ip"]
         port = functionInputDict["port"]
         timeout = functionInputDict["timeout"]
-        response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+        domainName = functionInputDict["domainName"]
+        if domainName == "":
+            response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+        else:
+            response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
         return { "headers" : response.headers, "status_code" : response.status_code }
 
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
         port = helpers.evalString(self.port,{"data" : data})
         scanName = helpers.evalString(self.scanName,{"data" : data})
+        domainName = helpers.evalString(self.domainName,{"data" : data})
 
         result = []
         protocols = ["http", "https"]
@@ -388,7 +402,7 @@ class _ingaWebServerDetect(action._action):
             if self.timeout != 0:
                 timeout = self.timeout
                 
-            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout})
+            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,self.webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName})
             if "error" not in response:
                 headers = helpers.lower_dict(response["headers"])
                 for excludeHeader in self.excludeHeaders:
@@ -396,8 +410,13 @@ class _ingaWebServerDetect(action._action):
                         del headers[excludeHeader]
                 # Update scan if updateScan mapping was provided
                 if len(scanName) > 0:
-                    inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
-                result.append({ "protocol" : protocol, "headers" : headers })
+                    if domainName == "":
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
+                        url = "{0}://{1}:{2}".format(protocol,ip,port)
+                    else:
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webServerDetect.{0}".format(protocol) : { "protocol" : protocol, "headers" : headers  } } })
+                        url = "{0}://{1}".format(protocol,domainName)
+                result.append({ "protocol" : protocol, "headers" : headers, "url" : url })
 
         if result:
             actionResult["result"] = True
@@ -442,26 +461,27 @@ class _ingatheHarvester(action._action):
             if len(scanName) > 0:
                 scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan","domains"])
                 for domain in response["domains"]:
-                    scanFound = False
-                    for scanResult in scanResults:
-                        if scanResult.ip == domain["ip"]:
-                            currentEntry = scanResult
-                            scanFound = True
-                            break
-                    if not scanFound:
-                        newId = str(inga._inga().new(self.acl,scanName,domain["ip"],False).inserted_id)
-                        newEntry = inga._inga().getAsClass(id=newId)[0]
-                        scanResults.append(newEntry)
-                        currentEntry = newEntry
-                    currentEntryDomainFound = False
-                    for currentEntryDomain in currentEntry.domains:
-                        if currentEntryDomain["domain"] == domain["domain"]:
-                            currentEntryDomainFound = True
-                            currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"], "domains.domain" : domain["domain"] },{ "$set" : { "domains.$.lastSeen" : domain["lastSeen"] } })
-                            break
-                    if not currentEntryDomainFound:
-                        currentEntry.domains.append(domain)
-                        currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"] },{ "$push" : { "domains" : domain } })
+                    if domain["ip"] != "":
+                        scanFound = False
+                        for scanResult in scanResults:
+                            if scanResult.ip == domain["ip"]:
+                                currentEntry = scanResult
+                                scanFound = True
+                                break
+                        if not scanFound:
+                            newId = str(inga._inga().new(self.acl,scanName,domain["ip"],False).inserted_id)
+                            newEntry = inga._inga().getAsClass(id=newId)[0]
+                            scanResults.append(newEntry)
+                            currentEntry = newEntry
+                        currentEntryDomainFound = False
+                        for currentEntryDomain in currentEntry.domains:
+                            if currentEntryDomain["domain"] == domain["domain"]:
+                                currentEntryDomainFound = True
+                                currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"], "domains.domain" : domain["domain"] },{ "$set" : { "domains.$.lastSeen" : domain["lastSeen"] } })
+                                break
+                        if not currentEntryDomainFound:
+                            currentEntry.domains.append(domain)
+                            currentEntry._dbCollection.update_one({ "scanName" : scanName, "ip" : domain["ip"] },{ "$push" : { "domains" : domain } })
                 
             actionResult["result"] = True
             actionResult["rc"] = 0

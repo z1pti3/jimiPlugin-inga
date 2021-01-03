@@ -13,7 +13,7 @@
     </head>
     <body class="theme-panelContainer">
         {% for img in result %}
-            <a href="{{ img["type"]+"://"+img["ip"]+":"+img["port"] }}"><img src="data:image/png;base64,{{ img["fileData"] }}" width="800px" title="{{ img["ip"]+":"+img["port"] }}"></img></a>
+            <a href="{{ img["url"] }}"><img src="data:image/png;base64,{{ img["fileData"] }}" width="800px" title="{{ img["url"] }}"></img></a>
         {% endfor %}
     </body>
 </html>
