@@ -141,10 +141,17 @@ class _ingaIPDiscoverAction(action._action):
                     inga._inga().new(self.acl,scanName,str(ip),False)
         except:
             pass
-        if self.lastScanAtLeast > 0:
-            scanResults = inga._inga().getAsClass(query={ "scanName" : scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
+        if scanName != "":
+            if self.lastScanAtLeast > 0:
+                scanResults = inga._inga().getAsClass(query={ "scanName" : scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
+            else:
+                scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
         else:
-            scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
+            # If no scanName is given then return results from all scans
+            if self.lastScanAtLeast > 0:
+                scanResults = inga._inga().getAsClass(query={ "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
+            else:
+                scanResults = inga._inga().getAsClass(query={ },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
         discovered = []
         for scanResult in scanResults:
             # Support for running on a remote host
@@ -170,7 +177,7 @@ class _ingaIPDiscoverAction(action._action):
                     scanResult.updateRecord(scanResult.ip,True)
                     change = True
                 if not self.stateChange or change:
-                    discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
+                    discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanResult.scanName })
             elif self.pingOnly == False:
                 if self.runRemote and "remote" in persistentData:
                     if "client" in persistentData["remote"]:
@@ -198,7 +205,7 @@ class _ingaIPDiscoverAction(action._action):
                         scanResult.updateRecord(scanResult.ip,True)
                         change = True
                     if not self.stateChange or change:
-                        discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
+                        discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanResult.scanName })
                 else:
                     if self.runRemote and "remote" in persistentData:
                         if "client" in persistentData["remote"]:
@@ -227,13 +234,13 @@ class _ingaIPDiscoverAction(action._action):
                             scanResult.updateRecord(scanResult.ip,True)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanName })
+                            discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanResult.scanName })
                     else:
                         if scanResult.up != False:
                             scanResult.updateRecord(scanResult.ip,False)
                             change = True
                         if not self.stateChange or change:
-                            discovered.append({ "ip" : scanResult.ip, "up" : False, "scanName" : scanName })
+                            discovered.append({ "ip" : scanResult.ip, "up" : False, "scanName" : scanResult.scanName })
             if not change:
                 scanResult.lastScan = int(time.time())
                 scanResult.update(["lastScan"])
@@ -543,7 +550,10 @@ class _ingaGetScan(action._action):
     def run(self,data,persistentData,actionResult):
         scanName = helpers.evalString(self.scanName,{"data" : data})
         customSearch = helpers.evalDict(self.customSearch,{"data" : data})
-        search = { "scanName" : scanName }
+        if scanName != "":
+            search = { "scanName" : scanName }
+        else:
+            search = { }
         if customSearch:
             for key,value in customSearch.items():
                 search[key] = value
@@ -569,7 +579,10 @@ class _ingaGetScanUpAction(action._action):
     def run(self,data,persistentData,actionResult):
         scanName = helpers.evalString(self.scanName,{"data" : data})
         customSearch = helpers.evalDict(self.customSearch,{"data" : data})
-        search = { "scanName" : scanName, "up" : True }
+        if scanName != "":
+            search = { "scanName" : scanName, "up" : True }
+        else:
+            search = { "up" : True }
         if customSearch:
             for key,value in customSearch.items():
                 search[key] = value
