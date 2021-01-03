@@ -13,6 +13,104 @@ from core.models import action
 from plugins.inga.models import inga
 from plugins.remote.includes import helpers as remoteHelpers
 
+class _ingaScanRemoveDomain(action._action):
+    scanName = str()
+    domain = str()
+    ip = str()
+
+    def run(self,data,persistentData,actionResult):
+        ip = helpers.evalString(self.ip,{"data" : data})
+        domain = helpers.evalString(self.domain,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+
+        scanResult = inga._inga().getAsClass(query={ "scanName" : scanName, "ip" : ip, "domains.domain" : domain },fields=["scanName","ip","domains"])
+        if len(scanResult) == 1:
+            scanResult = scanResult[0]
+            scanResult._dbCollection.update_one({ "scanName" : scanName, "ip" : ip, "domains.domain" : domain },{ "$pull" : { "domains" : { "domain" : domain } } })
+            actionResult["result"] = True
+            actionResult["rc"] = 200
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 502
+        return actionResult
+
+class _ingaScanAddDomain(action._action):
+    scanName = str()
+    domain = str()
+    ip = str()
+
+    def run(self,data,persistentData,actionResult):
+        ip = helpers.evalString(self.ip,{"data" : data})
+        domain = helpers.evalString(self.domain,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+
+        scanResult = inga._inga().getAsClass(query={ "scanName" : scanName, "ip" : ip },fields=["scanName","ip","domains"])
+        if len(scanResult) == 1:
+            scanResult = scanResult[0]
+            domainFound = False
+            for domainKey,domainItem in scanResult.domains.items():
+                if domainItem["domain"] == domain:
+                    domainFound = True
+                    break
+            if not domainFound:
+                scanResult._dbCollection.update_one({ "scanName" : scanName, "ip" : ip },{ "$push" : { "domains" : { "domain" : domain, "ip" : ip, "lastSeen" : time.time() } } })
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+        elif len(scanResult) == 0:
+            newId = inga._inga().new(self.acl,scanName,str(ip),False)
+            scanResult = inga._inga().getAsClass(id=str(newId.inserted_id),fields=["scanName","ip","domains"])
+            scanResult.domains.append({ "domain" : domain, "ip" : ip, "lastSeen" : time.time() })
+            scanResult.update(["domains"])
+            actionResult["result"] = True
+            actionResult["rc"] = 201
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 502
+        return actionResult
+
+class _ingaScanRemoveIP(action._action):
+    scanName = str()
+    ip = str()
+
+    def run(self,data,persistentData,actionResult):
+        ip = helpers.evalString(self.ip,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+
+        scanResult = inga._inga().getAsClass(query={ "scanName" : scanName, "ip" : ip },fields=["scanName","ip"])
+        if len(scanResult) == 1:
+            scanResult = scanResult[0]
+            scanResult.delete()
+            actionResult["result"] = True
+            actionResult["rc"] = 0
+        else:
+            actionResult["result"] = False
+            actionResult["rc"] = 502
+        return actionResult
+
+class _ingaScanAddIP(action._action):
+    scanName = str()
+    cidr = str()
+
+    def run(self,data,persistentData,actionResult):
+        cidr = helpers.evalString(self.cidr,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+
+        ips = IPNetwork(cidr)
+        scanResults = inga._inga().query(query={ "scanName" : scanName },fields=["scanName","ip"])["results"]
+        newIPs = []
+        for ip in ips:
+            ipFound = False
+            for scanResult in scanResults:
+                if str(ip) == scanResult["ip"]:
+                    ipFound = True
+            if not ipFound:
+                inga._inga().new(self.acl,scanName,str(ip),False)
+                newIPs.append(str(ip))
+
+        actionResult["result"] = True
+        actionResult["rc"] = 0
+        actionResult["added"] = newIPs
+        return actionResult
 
 class _ingaIPDiscoverAction(action._action):
     scanName = str()
@@ -26,20 +124,23 @@ class _ingaIPDiscoverAction(action._action):
     def run(self,data,persistentData,actionResult):
         cidr = helpers.evalString(self.cidr,{"data" : data})
         scanName = helpers.evalString(self.scanName,{"data" : data})
-        ips = IPNetwork(cidr)
-        if self.scanQuantity == 0:
-            scanQuantity = len(ips)
-        else:
-            scanQuantity = self.scanQuantity
 
-        scanResults = inga._inga().query(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan"])["results"]
-        for ip in ips:
-            ipFound = False
-            for scanResult in scanResults:
-                if str(ip) == scanResult["ip"]:
-                    ipFound = True
-            if not ipFound:
-                inga._inga().new(self.acl,scanName,str(ip),False)
+        scanQuantity = self.scanQuantity
+        try:
+            ips = IPNetwork(cidr)
+            if self.scanQuantity == 0:
+                scanQuantity = len(ips)
+
+            scanResults = inga._inga().query(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan"])["results"]
+            for ip in ips:
+                ipFound = False
+                for scanResult in scanResults:
+                    if str(ip) == scanResult["ip"]:
+                        ipFound = True
+                if not ipFound:
+                    inga._inga().new(self.acl,scanName,str(ip),False)
+        except:
+            pass
         if self.lastScanAtLeast > 0:
             scanResults = inga._inga().getAsClass(query={ "scanName" : scanName, "lastScan" : { "$lt" : ( time.time() - self.lastScanAtLeast ) } },limit=scanQuantity,sort=[( "lastScan", 1 )],fields=["scanName","ip","up","lastScan"])
         else:
@@ -218,9 +319,7 @@ class _ingaPortScan(action._action):
                     currentPort = [ x for x in scan.ports["tcp"] if x["port"] == portNumber ]
                     if currentPort:
                         currentPort = currentPort[0]
-                        portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : currentPort["data"] }
-                    else:
-                        portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : { } }
+                    portDict = { "port" : portNumber, "type" : portType, "state" : portState, "service" : portService, "data" : { }, "lastSeen" : time.time() }
 
                     if portNumber not in foundPorts:
                         foundPorts.append(portNumber)
@@ -228,7 +327,7 @@ class _ingaPortScan(action._action):
                         if not currentPort:
                             updates["new"].append(portDict)
                         else:
-                            if currentPort != portDict:
+                            if currentPort["state"] != portDict["state"] or currentPort["service"] != portDict["service"]:
                                 updates["update"].append(portDict)
                             elif not self.stateChange:
                                 updates["update"].append(portDict)
@@ -345,14 +444,14 @@ class _ingaWebScreenShot(action._action):
                             storage._storage().api_delete(id=scanPort["data"]["webScreenShot"]["storageID"])
                 except KeyError:
                     pass
-            newStorageItem = storage._storage().new(self.acl,response["fileData"])
+            newStorageItem = storage._storage().new(self.acl,"_ingaWebScreenShot",response["fileData"])
             if domainName == "":
-                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id) } } })
+                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webScreenShot" : { "storageID" : str(newStorageItem.inserted_id), "lastSeen" : time.time() } } })
             else:
                 protocol = "http"
                 if "https://" in url:
                     protocol = "https"
-                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webScreenShot.{0}".format(protocol) : { "storageID" : str(newStorageItem.inserted_id) } } })
+                inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webScreenShot.{0}".format(protocol) : { "storageID" : str(newStorageItem.inserted_id), "lastSeen" : time.time() } } })
             actionResult["result"] = True
             actionResult["rc"] = 0
             actionResult["storageID"] = str(newStorageItem.inserted_id)
@@ -411,12 +510,20 @@ class _ingaWebServerDetect(action._action):
                 # Update scan if updateScan mapping was provided
                 if len(scanName) > 0:
                     if domainName == "":
-                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "ports.tcp.port" : port },{ "$set" : { "ports.tcp.$.data.webServerDetect" : { "protocol" : protocol, "headers" : headers, "lastSeen" : time.time()  } } })
                         url = "{0}://{1}:{2}".format(protocol,ip,port)
                     else:
-                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webServerDetect.{0}".format(protocol) : { "protocol" : protocol, "headers" : headers  } } })
+                        inga._inga()._dbCollection.update_one({ "scanName": scanName, "ip": ip, "domains.domain" : domainName },{ "$set" : { "domains.$.data.webServerDetect.{0}".format(protocol) : { "protocol" : protocol, "headers" : headers, "lastSeen" : time.time()  } } })
                         url = "{0}://{1}".format(protocol,domainName)
-                result.append({ "protocol" : protocol, "headers" : headers, "url" : url })
+                # Detect HTTP -> HTTPS redirect upgrade
+                insecureUpgrade = None
+                try:
+                    if protocol == "http" and "https://" in headers["location"]:
+                        insecureUpgrade = True
+                except KeyError:
+                    if protocol == "http":
+                        insecureUpgrade = False
+                result.append({ "protocol" : protocol, "headers" : headers, "url" : url, "insecureUpgrade" : insecureUpgrade })
 
         if result:
             actionResult["result"] = True
@@ -494,6 +601,31 @@ class _ingatheHarvester(action._action):
             actionResult["stdout"] = response["stdout"]
         return actionResult
 
+class _ingaGetScan(action._action):
+    scanName = str()
+    customSearch = dict()
+    limit = 0
+
+    def run(self,data,persistentData,actionResult):
+        scanName = helpers.evalString(self.scanName,{"data" : data})
+        customSearch = helpers.evalDict(self.customSearch,{"data" : data})
+        search = { "scanName" : scanName }
+        if customSearch:
+            for key,value in customSearch.items():
+                search[key] = value
+        actionResult["result"] = True
+        actionResult["rc"] = 0
+        if self.limit > 0:
+            actionResult["events"] = inga._inga().query(query=search,limit=self.limit,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
+        else:
+            actionResult["events"] = inga._inga().query(query=search,sort=[( "ports.scanDetails.lastPortScan", 1 )])["results"]
+        return actionResult
+
+    def setAttribute(self,attr,value,sessionData=None):
+        if not sessionData or db.fieldACLAccess(sessionData,self.acl,attr,accessType="write"):
+            if attr == "customSearch":
+                value = helpers.unicodeEscapeDict(value)
+        return super(_ingaGetScan, self).setAttribute(attr,value,sessionData=sessionData)
 
 class _ingaGetScanUpAction(action._action):    
     scanName = str()
