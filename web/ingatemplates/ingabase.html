@@ -1,0 +1,41 @@
+<!DOCTYPE html> 
+
+
+<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.min.css">
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.16/js/jquery.dataTables.min.js"></script>
+
+
+<!-- Used -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+
+<!-- For UI Icons  -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" />
+
+<!-- Additional Styling on Chart -->
+<!-- <link rel="stylesheet" href="{{ url_for('ingaPages.static', filename='css/ingaStylingDark.css') }}"> -->
+{% block stylesheet %}
+
+
+{% endblock %}
+<html>
+    <head>
+        {% block headstylesheet %}
+
+        {% endblock %}
+    </head>
+    <body class="theme-panelContainer">
+
+            {% block content %}
+
+            {% endblock %}
+
+
+            {% block scripts %}
+
+            {% endblock %}
+    </body>
+</html>
+

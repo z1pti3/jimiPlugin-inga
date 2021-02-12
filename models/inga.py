@@ -12,13 +12,15 @@ class _inga(db._document):
     lastScan = int()
     domains = list()
     ports = dict() # { "scanDetails" : { "lastPortScan" : 0 }, "tcp" : [ { "port" : 80, "type" : "tcp", "service" : "http", "data" : { "webserverdetect" : { "headers" : {  }, "propcol" : "http" } } } ], "udp" : [] }
+    cidr  = str()
 
     _dbCollection = db.db[dbCollectionName]
 
-    def new(self, acl, scanName, ip, up):
+    def new(self, acl, scanName, ip, up,cidr=""):
         self.acl = acl
         self.scanName = scanName
         self.name = ip
+        self.cidr = cidr
         self.ip = ip
         self.up = up
         self.ports = { "scanDetails" : { "lastPortScan" : 0 }, "tcp" : [], "udp" : [] }

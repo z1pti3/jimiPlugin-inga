@@ -138,7 +138,7 @@ class _ingaIPDiscoverAction(action._action):
                     if str(ip) == scanResult["ip"]:
                         ipFound = True
                 if not ipFound:
-                    inga._inga().new(self.acl,scanName,str(ip),False)
+                    inga._inga().new(self.acl,scanName,str(ip),False,cidr=cidr)
         except:
             pass
         if scanName != "":
@@ -397,6 +397,7 @@ class _ingaWebScreenShot(action._action):
     outputDir = "/tmp"
     scanName = str()
     runRemote = bool()
+    elevate   = bool()
 
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
@@ -409,7 +410,7 @@ class _ingaWebScreenShot(action._action):
         if self.timeout != 0:
             timeout = self.timeout
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir})
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir},elevate=self.elevate)
         if "error" not in response:
             # check for existing screenshot and delete it
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
@@ -604,21 +605,28 @@ class _ingaGetScanUpAction(action._action):
 # Remote / Local Fuctions
 
 def takeScreenshot(functionInputDict):
+    from selenium.webdriver.firefox.options import Options as options
+    from selenium.webdriver.firefox.service import Service
     from selenium import webdriver
     import uuid
     import os
     from pathlib import Path
     import base64
 
-    url = functionInputDict["url"]
-    timeout = functionInputDict["timeout"]
-    outputDir = functionInputDict["outputDir"]
+    url         = functionInputDict["url"]
+    timeout     = functionInputDict["timeout"]
+    outputDir   = functionInputDict["outputDir"]
 
-    profile = webdriver.FirefoxProfile()
-    profile.accept_untrusted_certs = True
-    fireFoxOptions = webdriver.FirefoxOptions()
-    fireFoxOptions.set_headless()
-    wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
+    new_driver_path     = '/usr/bin/geckodriver'
+    new_binary_path     = '/usr/bin/firefox'
+
+    ops                 = options()
+    ops.add_argument("--headless")
+    ops.binary_location = new_binary_path
+    serv                = Service(new_driver_path)
+
+    wdriver = webdriver.Firefox(service=serv, options=ops)
+    
     wdriver.set_window_size(1920, 1080)
     wdriver.set_page_load_timeout(timeout)
     try:
