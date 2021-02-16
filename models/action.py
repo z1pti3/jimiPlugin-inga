@@ -608,30 +608,22 @@ class _ingaGetScanUpAction(action._action):
 
 
 # Remote / Local Fuctions
-
 def takeScreenshot(functionInputDict):
-    from selenium.webdriver.firefox.options import Options as options
-    from selenium.webdriver.firefox.service import Service
     from selenium import webdriver
     import uuid
     import os
     from pathlib import Path
     import base64
 
-    url         = functionInputDict["url"]
-    timeout     = functionInputDict["timeout"]
-    outputDir   = functionInputDict["outputDir"]
+    url = functionInputDict["url"]
+    timeout = functionInputDict["timeout"]
+    outputDir = functionInputDict["outputDir"]
 
-    new_driver_path     = '/usr/bin/geckodriver'
-    new_binary_path     = '/usr/bin/firefox'
-
-    ops                 = options()
-    ops.add_argument("--headless")
-    ops.binary_location = new_binary_path
-    serv                = Service(new_driver_path)
-
-    wdriver = webdriver.Firefox(service=serv, options=ops)
-    
+    profile = webdriver.FirefoxProfile()
+    profile.accept_untrusted_certs = True
+    fireFoxOptions = webdriver.FirefoxOptions()
+    fireFoxOptions.set_headless()
+    wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
     wdriver.set_window_size(1920, 1080)
     wdriver.set_page_load_timeout(timeout)
     try:
