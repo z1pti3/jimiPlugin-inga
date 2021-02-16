@@ -393,11 +393,9 @@ class _ingaWebScreenShot(action._action):
     url = str()
     domainName = str()
     timeout = int()
-    updateScan = dict()
     outputDir = "/tmp"
     scanName = str()
     runRemote = bool()
-    elevate   = bool()
 
     def run(self,data,persistentData,actionResult):
         ip = helpers.evalString(self.ip,{"data" : data})
@@ -410,7 +408,7 @@ class _ingaWebScreenShot(action._action):
         if self.timeout != 0:
             timeout = self.timeout
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir},elevate=self.elevate)
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir},False)
         if "error" not in response:
             # check for existing screenshot and delete it
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
@@ -463,7 +461,7 @@ class _ingaWebServerDetect(action._action):
             if self.timeout != 0:
                 timeout = self.timeout
                 
-            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName})
+            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName},False)
             if "error" not in response:
                 headers = helpers.lower_dict(response["headers"])
                 for excludeHeader in self.excludeHeaders:
@@ -486,6 +484,13 @@ class _ingaWebServerDetect(action._action):
                     if protocol == "http":
                         insecureUpgrade = False
                 result.append({ "protocol" : protocol, "headers" : headers, "url" : url, "insecureUpgrade" : insecureUpgrade })
+            else:
+                actionResult["result"] = False
+                actionResult["rc"] = 500
+                actionResult["msg"] = response["error"]
+                actionResult["stderr"] = response["stderr"]
+                actionResult["stdout"] = response["stdout"]
+                return actionResult
 
         if result:
             actionResult["result"] = True
@@ -505,7 +510,7 @@ class _ingatheHarvester(action._action):
         scanName = helpers.evalString(self.scanName,{"data" : data})
         topLevelDomain = helpers.evalString(self.topLevelDomain,{"data" : data})
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,runtheHarvester,{"topLevelDomain" : topLevelDomain})
+        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,runtheHarvester,{"topLevelDomain" : topLevelDomain},False)
         if "error" not in response:
             if len(scanName) > 0:
                 scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan","domains"])
