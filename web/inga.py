@@ -42,11 +42,11 @@ def urlencode_filter(s):
     s = urllib.parse.quote_plus(s)
     return Markup(s)
 
-@pluginPages.route('/inga/includes/<file>')
+@pluginPages.route('/includes/<file>')
 def custom_static(file):
     return send_from_directory(str(Path("plugins/inga/web/includes")), file)
 
-@pluginPages.route("/inga/")
+@pluginPages.route("/")
 def mainPage():
 
     # unsecurePorts,fileTransferPorts,rdp,webserverPorts,databasePorts,networkProtoPorts,otherPort = 0,0,0,0,0,0,0
@@ -116,7 +116,7 @@ def mainPage():
     # print(sankeyChartData)
     return render_template("ingaHomepage.html", scans=results,sankeyPortData=sankeyChartData,pieChart=portsPieChart,pieChartColours=pieChartColours)
 
-@pluginPages.route("/inga/scan/")
+@pluginPages.route("/scan/")
 def getScan():
     scanName            = urllib.parse.unquote_plus(request.args.get("scanName"))
     results             = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["scanName","ip","up","lastScan","ports"])["results"]
@@ -185,7 +185,7 @@ def getScan():
     return render_template("ingaScan.html", barChartData=barChartData,barChartColours=barChartColours,scanData=scanData, networkChartPorts=networkChartPorts)    
     # return render_template("scan.html", scanResults=results)
 
-@pluginPages.route("/inga/scan/images/")
+@pluginPages.route("/scan/images/")
 def getScanImages():
     scanName = urllib.parse.unquote_plus(request.args.get("scanName"))
     results = inga._inga().query(api.g.sessionData,query={ "scanName" : scanName, "up" : True },fields=["ports","ip","domains"])["results"]
