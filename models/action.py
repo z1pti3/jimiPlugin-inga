@@ -340,7 +340,7 @@ class _ingaPortScan(action._action):
                 if len(updates["new"]) > 0 or len(updates["update"]) > 0:
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
-                actionResult = {}
+                actionResult = { "data" : {} }
                 actionResult["result"] = True
                 actionResult["rc"] = 0
                 actionResult["data"]["portScan"] = updates
