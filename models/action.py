@@ -121,9 +121,9 @@ class _ingaIPDiscoverAction(action._action):
     pingOnly = bool()
     lastScanAtLeast = int()
 
-    def run(self,data,persistentData,actionResult):
-        cidr = helpers.evalString(self.cidr,{"data" : data})
-        scanName = helpers.evalString(self.scanName,{"data" : data})
+    def doAction(self,data):
+        cidr = helpers.evalString(self.cidr,{"data" : data["flowData"]})
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
 
         scanQuantity = self.scanQuantity
         try:
@@ -155,17 +155,14 @@ class _ingaIPDiscoverAction(action._action):
         discovered = []
         for scanResult in scanResults:
             # Support for running on a remote host
-            if self.runRemote and "remote" in persistentData:
-                if "client" in persistentData["remote"]:
-                    client = persistentData["remote"]["client"]
+            if self.runRemote and "remote" in data["eventData"]:
+                if "client" in data["eventData"]["remote"]:
+                    client = data["eventData"]["remote"]["client"]
                     exitCode, stdout, stderr = client.command(" ".join(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                     stdout = "\n".join(stdout)
                     stderr = "\n".join(stderr)
                     if not stdout:
-                        actionResult["result"] = False
-                        actionResult["rc"] = 500
-                        actionResult["msg"] = stderr
-                        return actionResult
+                        return { "result" : False, "rc" : 500, "msg" : stderr }
             else:
                 process = subprocess.Popen(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
@@ -179,17 +176,14 @@ class _ingaIPDiscoverAction(action._action):
                 if not self.stateChange or change:
                     discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanResult.scanName })
             elif self.pingOnly == False:
-                if self.runRemote and "remote" in persistentData:
-                    if "client" in persistentData["remote"]:
-                        client = persistentData["remote"]["client"]
+                if self.runRemote and "remote" in data["eventData"]:
+                    if "client" in data["eventData"]["remote"]:
+                        client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                         stdout = "\n".join(stdout)
                         stderr = "\n".join(stderr)
                         if not stdout:
-                            actionResult["result"] = False
-                            actionResult["rc"] = 500
-                            actionResult["msg"] = stderr
-                            return actionResult
+                            return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
                     process = subprocess.Popen(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout, stderr = process.communicate()
@@ -207,17 +201,14 @@ class _ingaIPDiscoverAction(action._action):
                     if not self.stateChange or change:
                         discovered.append({ "ip" : scanResult.ip, "up" : True, "scanName" : scanResult.scanName })
                 else:
-                    if self.runRemote and "remote" in persistentData:
-                        if "client" in persistentData["remote"]:
-                            client = persistentData["remote"]["client"]
+                    if self.runRemote and "remote" in data["eventData"]:
+                        if "client" in data["eventData"]["remote"]:
+                            client = data["eventData"]["remote"]["client"]
                             exitCode, stdout, stderr = client.command(" ".join(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
                             stdout = "\n".join(stdout)
                             stderr = "\n".join(stderr)
                             if not stdout:
-                                actionResult["result"] = False
-                                actionResult["rc"] = 500
-                                actionResult["msg"] = stderr
-                                return actionResult
+                                return { "result" : False, "rc" : 500, "msg" : stderr }
                     else:
                         process = subprocess.Popen(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                         stdout, stderr = process.communicate()
@@ -246,13 +237,9 @@ class _ingaIPDiscoverAction(action._action):
                 scanResult.update(["lastScan"])
             
         if len(discovered) > 0:
-            actionResult["result"] = True
-            actionResult["rc"] = 0
-            actionResult["discovered"] = discovered
+            return { "result" : True, "rc" : 0, "discovered" : discovered }
         else:
-            actionResult["result"] = False
-            actionResult["rc"] = 404
-        return actionResult
+            return { "result" : False, "rc" : 404 }
 
 class _ingaPortScan(action._action):
     ports = str()
@@ -262,11 +249,11 @@ class _ingaPortScan(action._action):
     stateChange = bool()
     runRemote = bool()
 
-    def run(self,data,persistentData,actionResult):
-        ip = helpers.evalString(self.ip,{"data" : data})
+    def doAction(self,data):
+        ip = helpers.evalString(self.ip,{"data" : data["flowData"]})
         if ip:
-            ports = helpers.evalString(self.ports,{"data" : data})
-            scanName = helpers.evalString(self.scanName,{"data" : data})
+            ports = helpers.evalString(self.ports,{"data" : data["flowData"]})
+            scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
 
             options = ["nmap"]
             if ports.startswith("--"):
@@ -290,17 +277,14 @@ class _ingaPortScan(action._action):
                     timeout = self.timeout
 
                 # Support for running on a remote host
-                if self.runRemote and "remote" in persistentData:
-                    if "client" in persistentData["remote"]:
-                        client = persistentData["remote"]["client"]
+                if self.runRemote and "remote" in data["eventData"]:
+                    if "client" in data["eventData"]["remote"]:
+                        client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(options),elevate=True)
                         stdout = "\n".join(stdout)
                         stderr = "\n".join(stderr)
                         if not stdout:
-                            actionResult["result"] = False
-                            actionResult["rc"] = 500
-                            actionResult["msg"] = stderr
-                            return actionResult
+                            return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
                     process = subprocess.Popen(options, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     try:
@@ -308,9 +292,7 @@ class _ingaPortScan(action._action):
                         stdout = stdout.decode()
                         stderr = stderr.decode()
                     except subprocess.TimeoutExpired:
-                        actionResult["result"] = False
-                        actionResult["rc"] = -999
-                        return actionResult
+                        return { "result" : False, "rc" : -999 }
 
 
                 openPorts = re.finditer(r'^(\d*)\/(\S*)\s*(\S*)\s*([^\n]*)$',stdout,re.MULTILINE)
@@ -358,6 +340,7 @@ class _ingaPortScan(action._action):
                 if len(updates["new"]) > 0 or len(updates["update"]) > 0:
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
+                actionResult = {}
                 actionResult["result"] = True
                 actionResult["rc"] = 0
                 actionResult["data"]["portScan"] = updates
@@ -397,18 +380,19 @@ class _ingaWebScreenShot(action._action):
     scanName = str()
     runRemote = bool()
 
-    def run(self,data,persistentData,actionResult):
-        ip = helpers.evalString(self.ip,{"data" : data})
-        port = helpers.evalString(self.port,{"data" : data})
-        scanName = helpers.evalString(self.scanName,{"data" : data})
-        url = helpers.evalString(self.url,{"data" : data})
-        domainName = helpers.evalString(self.domainName,{"data" : data})
-        outputDir = helpers.evalString(self.outputDir,{"data" : data})
+    def doAction(self,data):
+        actionResult = {}
+        ip = helpers.evalString(self.ip,{"data" : data["flowData"]})
+        port = helpers.evalString(self.port,{"data" : data["flowData"]})
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
+        url = helpers.evalString(self.url,{"data" : data["flowData"]})
+        domainName = helpers.evalString(self.domainName,{"data" : data["flowData"]})
+        outputDir = helpers.evalString(self.outputDir,{"data" : data["flowData"]})
         timeout = 5
         if self.timeout != 0:
             timeout = self.timeout
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir},False)
+        response = remoteHelpers.runRemoteFunction(self.runRemote,data["eventData"],takeScreenshot,{"url" : url, "timeout" : timeout, "outputDir" : outputDir},False)
         if "error" not in response:
             # check for existing screenshot and delete it
             scan = inga._inga().getAsClass(query={ "scanName": scanName, "ip": ip })
@@ -448,11 +432,12 @@ class _ingaWebServerDetect(action._action):
     scanName = str()
     runRemote = bool()
 
-    def run(self,data,persistentData,actionResult):
-        ip = helpers.evalString(self.ip,{"data" : data})
-        port = helpers.evalString(self.port,{"data" : data})
-        scanName = helpers.evalString(self.scanName,{"data" : data})
-        domainName = helpers.evalString(self.domainName,{"data" : data})
+    def doAction(self,data):
+        actionResult = {}
+        ip = helpers.evalString(self.ip,{"data" : data["flowData"]})
+        port = helpers.evalString(self.port,{"data" : data["flowData"]})
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
+        domainName = helpers.evalString(self.domainName,{"data" : data["flowData"]})
 
         result = []
         protocols = ["http", "https"]
@@ -461,7 +446,7 @@ class _ingaWebServerDetect(action._action):
             if self.timeout != 0:
                 timeout = self.timeout
                 
-            response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName},False)
+            response = remoteHelpers.runRemoteFunction(self.runRemote,data["eventData"],webserverConnect,{"protocol" : protocol, "ip" : ip, "port" : port, "timeout" : timeout, "domainName" : domainName},False)
             if "error" not in response:
                 headers = helpers.lower_dict(response["headers"])
                 for excludeHeader in self.excludeHeaders:
@@ -506,11 +491,12 @@ class _ingatheHarvester(action._action):
     topLevelDomain = str()
     runRemote = bool()
 
-    def run(self,data,persistentData,actionResult):
-        scanName = helpers.evalString(self.scanName,{"data" : data})
-        topLevelDomain = helpers.evalString(self.topLevelDomain,{"data" : data})
+    def doAction(self,data):
+        actionResult = {}
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
+        topLevelDomain = helpers.evalString(self.topLevelDomain,{"data" : data["flowData"]})
 
-        response = remoteHelpers.runRemoteFunction(self.runRemote,persistentData,runtheHarvester,{"topLevelDomain" : topLevelDomain},False)
+        response = remoteHelpers.runRemoteFunction(self.runRemote,data["eventData"],runtheHarvester,{"topLevelDomain" : topLevelDomain},False)
         if "error" not in response:
             if len(scanName) > 0:
                 scanResults = inga._inga().getAsClass(query={ "scanName" : scanName },fields=["scanName","ip","up","lastScan","domains"])
@@ -553,9 +539,10 @@ class _ingaGetScan(action._action):
     customSearch = dict()
     limit = 0
 
-    def run(self,data,persistentData,actionResult):
-        scanName = helpers.evalString(self.scanName,{"data" : data})
-        customSearch = helpers.evalDict(self.customSearch,{"data" : data})
+    def doAction(self,data):
+        actionResult = {}
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
+        customSearch = helpers.evalDict(self.customSearch,{"data" : data["flowData"]})
         if scanName != "":
             search = { "scanName" : scanName }
         else:
@@ -583,8 +570,8 @@ class _ingaGetScanUpAction(action._action):
     limit = 0
 
     def run(self,data,persistentData,actionResult):
-        scanName = helpers.evalString(self.scanName,{"data" : data})
-        customSearch = helpers.evalDict(self.customSearch,{"data" : data})
+        scanName = helpers.evalString(self.scanName,{"data" : data["flowData"]})
+        customSearch = helpers.evalDict(self.customSearch,{"data" : data["flowData"]})
         if scanName != "":
             search = { "scanName" : scanName, "up" : True }
         else:
