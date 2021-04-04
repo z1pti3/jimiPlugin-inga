@@ -159,6 +159,9 @@ class _ingaIPDiscoverAction(action._action):
                 if "client" in data["eventData"]["remote"]:
                     client = data["eventData"]["remote"]["client"]
                     exitCode, stdout, stderr = client.command(" ".join(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
+                    stdout = "".join(stdout)
+                    stderr = "".join(stderr)
+                    print(stdout)
                     if not stdout:
                         return { "result" : False, "rc" : 500, "msg" : stderr }
             else:
@@ -178,6 +181,8 @@ class _ingaIPDiscoverAction(action._action):
                     if "client" in data["eventData"]["remote"]:
                         client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
+                        stdout = "".join(stdout)
+                        stderr = "".join(stderr)
                         if not stdout:
                             return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
@@ -201,6 +206,8 @@ class _ingaIPDiscoverAction(action._action):
                         if "client" in data["eventData"]["remote"]:
                             client = data["eventData"]["remote"]["client"]
                             exitCode, stdout, stderr = client.command(" ".join(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
+                            stdout = "".join(stdout)
+                            stderr = "".join(stderr)
                             if not stdout:
                                 return { "result" : False, "rc" : 500, "msg" : stderr }
                     else:
@@ -275,6 +282,8 @@ class _ingaPortScan(action._action):
                     if "client" in data["eventData"]["remote"]:
                         client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(options),elevate=True)
+                        stdout = "".join(stdout)
+                        stderr = "".join(stderr)
                         if not stdout:
                             return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
@@ -332,7 +341,7 @@ class _ingaPortScan(action._action):
                 if len(updates["new"]) > 0 or len(updates["update"]) > 0:
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
-                actionResult = {}
+                actionResult = { "data" : {} }
                 actionResult["result"] = True
                 actionResult["rc"] = 0
                 actionResult["data"]["portScan"] = updates
@@ -626,11 +635,14 @@ def webserverConnect(functionInputDict):
     port = functionInputDict["port"]
     timeout = functionInputDict["timeout"]
     domainName = functionInputDict["domainName"]
-    if domainName == "":
-        response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
-    else:
-        response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
-    return { "headers" : response.headers, "status_code" : response.status_code }
+    try:
+        if domainName == "":
+            response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+        else:
+            response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
+        return { "headers" : response.headers, "status_code" : response.status_code }
+    except requests.exceptions.Timeout:
+        return { "headers" : [], "status_code" : -500 } 
 
 def runtheHarvester(functionInputDict):
     import subprocess
