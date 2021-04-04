@@ -601,8 +601,8 @@ def takeScreenshot(functionInputDict):
     profile = webdriver.FirefoxProfile()
     profile.accept_untrusted_certs = True
     fireFoxOptions = webdriver.FirefoxOptions()
-    fireFoxOptions.set_headless()
-    wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
+    fireFoxOptions.headless = True
+    wdriver = webdriver.Firefox(options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
     wdriver.set_window_size(1920, 1080)
     wdriver.set_page_load_timeout(timeout)
     try:
