@@ -159,9 +159,6 @@ class _ingaIPDiscoverAction(action._action):
                 if "client" in data["eventData"]["remote"]:
                     client = data["eventData"]["remote"]["client"]
                     exitCode, stdout, stderr = client.command(" ".join(["nmap","-sn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
-                    stdout = "".join(stdout)
-                    stderr = "".join(stderr)
-                    print(stdout)
                     if not stdout:
                         return { "result" : False, "rc" : 500, "msg" : stderr }
             else:
@@ -181,8 +178,6 @@ class _ingaIPDiscoverAction(action._action):
                     if "client" in data["eventData"]["remote"]:
                         client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(["nmap","--top-ports","100","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
-                        stdout = "".join(stdout)
-                        stderr = "".join(stderr)
                         if not stdout:
                             return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
@@ -206,8 +201,6 @@ class _ingaIPDiscoverAction(action._action):
                         if "client" in data["eventData"]["remote"]:
                             client = data["eventData"]["remote"]["client"]
                             exitCode, stdout, stderr = client.command(" ".join(["nmap","-sU","--top-ports","10","-Pn","--max-rtt-timeout","800ms","--max-retries","0",scanResult.ip]),elevate=True)
-                            stdout = "".join(stdout)
-                            stderr = "".join(stderr)
                             if not stdout:
                                 return { "result" : False, "rc" : 500, "msg" : stderr }
                     else:
@@ -282,8 +275,6 @@ class _ingaPortScan(action._action):
                     if "client" in data["eventData"]["remote"]:
                         client = data["eventData"]["remote"]["client"]
                         exitCode, stdout, stderr = client.command(" ".join(options),elevate=True)
-                        stdout = "".join(stdout)
-                        stderr = "".join(stderr)
                         if not stdout:
                             return { "result" : False, "rc" : 500, "msg" : stderr }
                 else:
