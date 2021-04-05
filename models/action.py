@@ -332,7 +332,7 @@ class _ingaPortScan(action._action):
                 if len(updates["new"]) > 0 or len(updates["update"]) > 0:
                     audit._audit().add("inga","history",{ "lastUpdate" : scan.lastUpdateTime, "endDate" : int(time.time()), "ip" : scan.ip, "up" : scan.up, "ports" : scan.ports })
 
-                actionResult = {}
+                actionResult = { "data" : {} }
                 actionResult["result"] = True
                 actionResult["rc"] = 0
                 actionResult["data"]["portScan"] = updates
@@ -601,8 +601,8 @@ def takeScreenshot(functionInputDict):
     profile = webdriver.FirefoxProfile()
     profile.accept_untrusted_certs = True
     fireFoxOptions = webdriver.FirefoxOptions()
-    fireFoxOptions.set_headless()
-    wdriver = webdriver.Firefox(firefox_options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
+    fireFoxOptions.headless = True
+    wdriver = webdriver.Firefox(options=fireFoxOptions,firefox_profile=profile,executable_path="/usr/bin/geckodriver",firefox_binary="/usr/bin/firefox")
     wdriver.set_window_size(1920, 1080)
     wdriver.set_page_load_timeout(timeout)
     try:
@@ -626,11 +626,14 @@ def webserverConnect(functionInputDict):
     port = functionInputDict["port"]
     timeout = functionInputDict["timeout"]
     domainName = functionInputDict["domainName"]
-    if domainName == "":
-        response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
-    else:
-        response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
-    return { "headers" : response.headers, "status_code" : response.status_code }
+    try:
+        if domainName == "":
+            response = requests.head("{0}://{1}:{2}".format(protocol,ip,port),verify=False,allow_redirects=False,timeout=timeout)
+        else:
+            response = requests.head("{0}://{1}".format(protocol,domainName),verify=False,allow_redirects=False,timeout=timeout)
+        return { "headers" : response.headers, "status_code" : response.status_code }
+    except requests.exceptions.Timeout:
+        return { "headers" : [], "status_code" : -500 } 
 
 def runtheHarvester(functionInputDict):
     import subprocess
