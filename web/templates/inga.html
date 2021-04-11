@@ -1,0 +1,23 @@
+{% extends "jimiLayout2.html" %}
+
+{% block head %}
+    {{ jimi.charts() }}
+    {{ jimi.tables() }}
+    {{ jimi.visjs() }}
+{% endblock %}
+
+{% block block1 %}
+    {{ jimi.table("2","Scans","tableScans/") }}
+{% endblock %}
+
+{% block block2 %}
+    {{ jimi.bar("1","Scans Services","barScansResults/",stacked="true") }}
+{% endblock %}
+
+{% block block3 %}
+    {{ jimi.table("3","Scans Domains","tableScansDomains/") }}
+{% endblock %}
+
+{% block block4 %}
+    {{ jimi.visjsnetwork("4","Scans Host Map","networkScansResults/","true") }}
+{% endblock %}

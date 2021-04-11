@@ -1,0 +1,23 @@
+{% extends "jimiLayout2.html" %}
+
+{% block head %}
+    {{ jimi.charts() }}
+    {{ jimi.visjs() }}
+{% endblock %}
+
+{% block block1 %}
+    <a href="images/">Web Images</a>
+{% endblock %}
+
+{% block block2 %}
+    {{ jimi.visjstimeline("1","Last Seen","timelineScansResults/") }}
+{% endblock %}
+
+{% block block3 %}
+    {{ jimi.bar("2","Scans Services","barScanResults/") }}
+{% endblock %}
+
+{% block block4 %}
+    {{ scanResults|safe }}
+{% endblock %}
+

@@ -1,19 +1,38 @@
-<script src="{{ url_for('static', filename='includes/jquery/js/jquery-3.4.1.js') }}"></script>
+{% import "jimi.html" as jimi %}
 
-<link rel="stylesheet" href="{{ url_for('static', filename='includes/bootstrap-3.3.7/css/bootstrap.min.css') }}">
-<script src="{{ url_for('static', filename='includes/bootstrap-3.3.7/js/bootstrap.min.js') }}"></script>
-
-<link rel="stylesheet" href="{{ url_for('static', filename='css/datatable.css') }}">
-
-<link rel="stylesheet" href="{{ url_for('static', filename='themes/default/default.css') }}">
+<script>
+    var CSRF="{{ CSRF }}";
+</script>
 
 <html>
     <head>
-        
+        <script src="{{ url_for('static', filename='includes/jquery-3.6.0/js/jquery-3.6.0.min.js') }}"></script>
+        {{ jimi.theme() }}
     </head>
-    <body class="theme-panelContainer">
-        {% for img in result %}
-            <a href="{{ img["url"] }}"><img src="data:image/png;base64,{{ img["fileData"] }}" width="800px" title="{{ img["url"] }}"></img></a>
-        {% endfor %}
+    <body class="overflow-auto">
+        <div class="container-fluid">
+            <div class="row g-0 m-1 justify-content-md-center">
+                {% for img in result %}
+                    <div class="col col-lg-3 m-1 panel">
+                        <a href="{{ img["url"] }}"><img src="data:image/png;base64,{{ img["fileData"] }}" width="100%" title="{{ img["url"] }}" onmouseout="mouseout(this)" onmouseover="mouseover(this)"></img></a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <script>
+            var timeout = null;
+            function mouseover(x) {
+                timeout = setTimeout(large, 1000, x);
+            }
+            function mouseout(x) {
+                clearTimeout(timeout);
+                $(x).parent().parent().addClass("col-lg-3");
+                $(x).parent().parent().removeClass("col-lg-10");
+            }
+            function large(x) {
+                $(x).parent().parent().removeClass("col-lg-3");
+                $(x).parent().parent().addClass("col-lg-10");
+            }
+        </script>
     </body>
 </html>
