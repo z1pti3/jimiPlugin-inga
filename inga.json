@@ -1,0 +1,916 @@
+{
+   "name": "inga",
+   "author": "z1p",
+   "version": 0.8,
+   "categories": [],
+   "description": "",
+   "icon": null,
+   "requirements": {
+      "jimi_min_version": null,
+      "jimi_max_version": null,
+      "plugins": []
+   },
+   "collections": {
+      "inga": {
+         "display_name": "inga",
+         "className": "_inga",
+         "class_location": "models.inga",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            },
+            {
+               "schema_item": "up",
+               "schema_value": "up",
+               "type": "checkbox",
+               "label": "up",
+               "description": ""
+            },
+            {
+               "schema_item": "lastScan",
+               "schema_value": "lastScan",
+               "type": "input",
+               "label": "lastScan",
+               "description": ""
+            },
+            {
+               "schema_item": "domains",
+               "schema_value": "domains",
+               "type": "json-input",
+               "label": "domains",
+               "description": ""
+            },
+            {
+               "schema_item": "ports",
+               "schema_value": "ports",
+               "type": "input",
+               "label": "ports",
+               "description": ""
+            },
+            {
+               "schema_item": "cidr",
+               "schema_value": "cidr",
+               "type": "input",
+               "label": "cidr",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      }
+   },
+   "triggers": {
+      "ingaIPDiscover": {
+         "display_name": "ingaIPDiscover",
+         "className": "_ingaIPDiscover",
+         "class_location": "models.trigger",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "scanQuantity",
+               "schema_value": "scanQuantity",
+               "type": "input",
+               "label": "scanQuantity",
+               "description": ""
+            },
+            {
+               "schema_item": "cidr",
+               "schema_value": "cidr",
+               "type": "input",
+               "label": "cidr",
+               "description": ""
+            },
+            {
+               "schema_item": "stateChange",
+               "schema_value": "stateChange",
+               "type": "checkbox",
+               "label": "stateChange",
+               "description": ""
+            },
+            {
+               "schema_item": "lastScanAtleast",
+               "schema_value": "lastScanAtleast",
+               "type": "input",
+               "label": "lastScanAtleast",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaGetScanUp": {
+         "display_name": "ingaGetScanUp",
+         "className": "_ingaGetScanUp",
+         "class_location": "models.trigger",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "customSearch",
+               "schema_value": "customSearch",
+               "type": "json-input",
+               "label": "customSearch",
+               "description": ""
+            },
+            {
+               "schema_item": "limit",
+               "schema_value": "limit",
+               "type": "input",
+               "label": "limit",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      }
+   },
+   "actions": {
+      "ingaScanRemoveDomain": {
+         "display_name": "ingaScanRemoveDomain",
+         "className": "_ingaScanRemoveDomain",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "domain",
+               "schema_value": "domain",
+               "type": "input",
+               "label": "domain",
+               "description": ""
+            },
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaScanAddDomain": {
+         "display_name": "ingaScanAddDomain",
+         "className": "_ingaScanAddDomain",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "domain",
+               "schema_value": "domain",
+               "type": "input",
+               "label": "domain",
+               "description": ""
+            },
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaScanRemoveIP": {
+         "display_name": "ingaScanRemoveIP",
+         "className": "_ingaScanRemoveIP",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaScanAddIP": {
+         "display_name": "ingaScanAddIP",
+         "className": "_ingaScanAddIP",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "cidr",
+               "schema_value": "cidr",
+               "type": "input",
+               "label": "cidr",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaIPDiscoverAction": {
+         "display_name": "ingaIPDiscoverAction",
+         "className": "_ingaIPDiscoverAction",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "scanQuantity",
+               "schema_value": "scanQuantity",
+               "type": "input",
+               "label": "scanQuantity",
+               "description": ""
+            },
+            {
+               "schema_item": "cidr",
+               "schema_value": "cidr",
+               "type": "input",
+               "label": "cidr",
+               "description": ""
+            },
+            {
+               "schema_item": "stateChange",
+               "schema_value": "stateChange",
+               "type": "checkbox",
+               "label": "stateChange",
+               "description": ""
+            },
+            {
+               "schema_item": "runRemote",
+               "schema_value": "runRemote",
+               "type": "checkbox",
+               "label": "runRemote",
+               "description": ""
+            },
+            {
+               "schema_item": "pingOnly",
+               "schema_value": "pingOnly",
+               "type": "checkbox",
+               "label": "pingOnly",
+               "description": ""
+            },
+            {
+               "schema_item": "lastScanAtLeast",
+               "schema_value": "lastScanAtLeast",
+               "type": "input",
+               "label": "lastScanAtLeast",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaPortScan": {
+         "display_name": "ingaPortScan",
+         "className": "_ingaPortScan",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "ports",
+               "schema_value": "ports",
+               "type": "input",
+               "label": "ports",
+               "description": ""
+            },
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            },
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "timeout",
+               "schema_value": "timeout",
+               "type": "input",
+               "label": "timeout",
+               "description": ""
+            },
+            {
+               "schema_item": "stateChange",
+               "schema_value": "stateChange",
+               "type": "checkbox",
+               "label": "stateChange",
+               "description": ""
+            },
+            {
+               "schema_item": "runRemote",
+               "schema_value": "runRemote",
+               "type": "checkbox",
+               "label": "runRemote",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaWebScreenShot": {
+         "display_name": "ingaWebScreenShot",
+         "className": "_ingaWebScreenShot",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            },
+            {
+               "schema_item": "port",
+               "schema_value": "port",
+               "type": "input",
+               "label": "port",
+               "description": ""
+            },
+            {
+               "schema_item": "url",
+               "schema_value": "url",
+               "type": "input",
+               "label": "url",
+               "description": ""
+            },
+            {
+               "schema_item": "domainName",
+               "schema_value": "domainName",
+               "type": "input",
+               "label": "domainName",
+               "description": ""
+            },
+            {
+               "schema_item": "timeout",
+               "schema_value": "timeout",
+               "type": "input",
+               "label": "timeout",
+               "description": ""
+            },
+            {
+               "schema_item": "outputDir",
+               "schema_value": "outputDir",
+               "type": "input",
+               "label": "outputDir",
+               "description": ""
+            },
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "runRemote",
+               "schema_value": "runRemote",
+               "type": "checkbox",
+               "label": "runRemote",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaWebServerDetect": {
+         "display_name": "ingaWebServerDetect",
+         "className": "_ingaWebServerDetect",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "ip",
+               "schema_value": "ip",
+               "type": "input",
+               "label": "ip",
+               "description": ""
+            },
+            {
+               "schema_item": "port",
+               "schema_value": "port",
+               "type": "input",
+               "label": "port",
+               "description": ""
+            },
+            {
+               "schema_item": "domainName",
+               "schema_value": "domainName",
+               "type": "input",
+               "label": "domainName",
+               "description": ""
+            },
+            {
+               "schema_item": "timeout",
+               "schema_value": "timeout",
+               "type": "input",
+               "label": "timeout",
+               "description": ""
+            },
+            {
+               "schema_item": "excludeHeaders",
+               "schema_value": "excludeHeaders",
+               "type": "json-input",
+               "label": "excludeHeaders",
+               "description": ""
+            },
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "runRemote",
+               "schema_value": "runRemote",
+               "type": "checkbox",
+               "label": "runRemote",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingatheHarvester": {
+         "display_name": "ingatheHarvester",
+         "className": "_ingatheHarvester",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "topLevelDomain",
+               "schema_value": "topLevelDomain",
+               "type": "input",
+               "label": "topLevelDomain",
+               "description": ""
+            },
+            {
+               "schema_item": "runRemote",
+               "schema_value": "runRemote",
+               "type": "checkbox",
+               "label": "runRemote",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaGetScan": {
+         "display_name": "ingaGetScan",
+         "className": "_ingaGetScan",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "customSearch",
+               "schema_value": "customSearch",
+               "type": "json-input",
+               "label": "customSearch",
+               "description": ""
+            },
+            {
+               "schema_item": "limit",
+               "schema_value": "limit",
+               "type": "input",
+               "label": "limit",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      },
+      "ingaGetScanUpAction": {
+         "display_name": "ingaGetScanUpAction",
+         "className": "_ingaGetScanUpAction",
+         "class_location": "models.action",
+         "description": "",
+         "fields": [
+            {
+               "schema_item": "scanName",
+               "schema_value": "scanName",
+               "type": "input",
+               "label": "scanName",
+               "description": ""
+            },
+            {
+               "schema_item": "customSearch",
+               "schema_value": "customSearch",
+               "type": "json-input",
+               "label": "customSearch",
+               "description": ""
+            },
+            {
+               "schema_item": "limit",
+               "schema_value": "limit",
+               "type": "input",
+               "label": "limit",
+               "description": ""
+            }
+         ],
+         "data_out": {
+            "result": {
+               "description": "Returns True when successful.",
+               "type": "boolean",
+               "always_present": true,
+               "values": {
+                  "True": {
+                     "description": "Successful."
+                  },
+                  "False": {
+                     "description": "Failure."
+                  }
+               }
+            },
+            "rc": {
+               "description": "Returns the exit code for the action.",
+               "type": "number",
+               "always_present": true,
+               "values": {
+                  "0": {
+                     "description": "Successful."
+                  }
+               }
+            }
+         }
+      }
+   },
+   "settings": {}
+}
